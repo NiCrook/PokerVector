@@ -1,0 +1,61 @@
+Game Hand #2651598942 - Tournament #34365507 - Holdem (No Limit) - Level 11 (2500.00/5000.00) - 2026/01/22 11:09:46 UTC
+Table '7' 8-max Seat #1 is the button
+Seat 1: slbetters (210250.00)
+Seat 3: zapssss (1019.00) is sitting out
+Seat 4: onKing (98200.00)
+Seat 5: Jakesthebest (87300.00) is sitting out
+Seat 6: baljanXenvi (874275.00)
+Seat 7: PolarFox (100000.00)
+Seat 8: NineABS (197350.00)
+slbetters posts ante 600.00
+zapssss posts ante 600.00
+onKing posts ante 600.00
+Jakesthebest posts ante 600.00
+baljanXenvi posts ante 600.00
+PolarFox posts ante 600.00
+NineABS posts ante 600.00
+zapssss posts the big blind 419.00 and is all-in
+*** HOLE CARDS ***
+Main pot 4200.00
+Dealt to PolarFox [9c Qs]
+onKing calls 5000.00
+Jakesthebest folds
+baljanXenvi raises 873675.00 to 873675.00 and is all-in
+PolarFox folds
+NineABS calls 196750.00 and is all-in
+slbetters folds
+onKing calls 92600.00 and is all-in
+Uncalled bet (676925.00) returned to baljanXenvi
+*** FLOP *** [2d 3h 6c]
+Main pot 5876.00
+Side pot(1) 291543.00
+Side pot(2) 198300.00
+*** TURN *** [2d 3h 6c] [8c]
+Main pot 5876.00
+Side pot(1) 291543.00
+Side pot(2) 198300.00
+*** RIVER *** [2d 3h 6c 8c] [8s]
+Main pot 5876.00
+Side pot(1) 291543.00
+Side pot(2) 198300.00
+*** SHOW DOWN ***
+Main pot 5876.00
+Side pot(1) 291543.00
+Side pot(2) 198300.00
+zapssss shows [Td 7s] (a pair of Eights [8s 8c Td 7s 6c])
+onKing shows [Jd Kc] (a pair of Eights [8s 8c Kc Jd 6c])
+baljanXenvi shows [As Qd] (a pair of Eights [8s 8c As Qd 6c])
+NineABS shows [Th Tc] (two pair, Tens and Eights [Th Tc 8s 8c 6c])
+NineABS collected 5876.00 from main pot
+NineABS collected 291543.00 from side pot-1
+NineABS collected 198300.00 from side pot-2
+*** SUMMARY ***
+Total pot 495719.00
+Board [2d 3h 6c 8c 8s]
+Seat 1: slbetters (button) folded on the Pre-Flop
+Seat 3: zapssss (big blind) showed [Td 7s] and lost with a pair of Eights [8s 8c Td 7s 6c]
+Seat 4: onKing showed [Jd Kc] and lost with a pair of Eights [8s 8c Kc Jd 6c]
+Seat 5: Jakesthebest folded on the Pre-Flop and did not bet
+Seat 6: baljanXenvi showed [As Qd] and lost with a pair of Eights [8s 8c As Qd 6c]
+Seat 7: PolarFox folded on the Pre-Flop and did not bet
+Seat 8: NineABS showed [Th Tc] and won 495719.00 with two pair, Tens and Eights [Th Tc 8s 8c 6c]

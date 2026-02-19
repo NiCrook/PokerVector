@@ -1,0 +1,35 @@
+Hand #2672065251 - 5Card Omaha (Pot Limit) - $0.01/$0.02 - 2026/02/16 03:35:48 UTC
+Dooling 6-max Seat #1 is the button
+Seat 1: TOJISENIN ($2.38)
+Seat 3: Frosty722 ($3.30)
+Seat 4: PolarFox ($2.00)
+Frosty722 posts the small blind $0.01
+PolarFox posts the big blind $0.02
+*** HOLE CARDS ***
+Dealt to PolarFox [2s Ts Kd 6h 9c]
+TOJISENIN folds
+Frosty722 calls $0.01
+PolarFox checks
+*** FLOP *** [Js 2d Ad]
+Main pot $0.04 | Rake $0.00
+Frosty722 checks
+PolarFox checks
+*** TURN *** [Js 2d Ad] [6d]
+Main pot $0.04 | Rake $0.00
+Frosty722 checks
+PolarFox checks
+*** RIVER *** [Js 2d Ad 6d] [8s]
+Main pot $0.04 | Rake $0.00
+Frosty722 checks
+PolarFox checks
+*** SHOW DOWN ***
+Main pot $0.04 | Rake $0.00
+Frosty722 shows [Qc 4s Qs 7c Tc] (a pair of Queens [Qs Qc Ad Js 8s])
+PolarFox shows [2s Ts Kd 6h 9c] (two pair, Sixs and Deuces [6h 6d 2s 2d Ad])
+PolarFox collected $0.04 from main pot
+*** SUMMARY ***
+Total pot $0.04
+Board [Js 2d Ad 6d 8s]
+Seat 1: TOJISENIN (button) folded on the Pre-Flop
+Seat 3: Frosty722 (small blind) showed [Qc 4s Qs 7c Tc] and lost with a pair of Queens [Qs Qc Ad Js 8s]
+Seat 4: PolarFox (big blind) showed [2s Ts Kd 6h 9c] and won $0.04 with two pair, Sixs and Deuces [6h 6d 2s 2d Ad]

@@ -1,0 +1,53 @@
+Hand #2672065780 - 7Stud H/L (Fixed Limit) - $0.04/$0.08, Ante $0.01 - 2026/02/16 03:36:34 UTC
+Kappa 8-max
+Seat 1: POPCHOW288 ($2.11)
+Seat 2: mulliongc ($0.92)
+Seat 4: Oakes ($5.84)
+Seat 5: PolarFox ($8.00)
+Seat 6: FateFellShortThisTime ($13.61)
+Seat 7: malibu dan ($1.96)
+Seat 8: BiggieSlick ($1.05)
+mulliongc posts ante $0.01
+BiggieSlick posts ante $0.01
+Oakes posts ante $0.01
+FateFellShortThisTime posts ante $0.01
+PolarFox posts ante $0.01
+malibu dan posts ante $0.01
+POPCHOW288 posts ante $0.01
+*** 3rd STREET ***
+Main pot $0.07 | Rake $0.00
+Dealt to POPCHOW288 [7h]
+Dealt to FateFellShortThisTime [8h]
+Dealt to mulliongc [Kd]
+Dealt to malibu dan [Jc]
+Dealt to BiggieSlick [Ts]
+Dealt to Oakes [Th]
+Dealt to PolarFox [5s 3s 9d]
+POPCHOW288 brings in $0.02
+mulliongc folds
+Oakes folds
+PolarFox calls $0.02
+FateFellShortThisTime folds
+malibu dan calls $0.02
+BiggieSlick folds
+*** 4th STREET ***
+Main pot $0.13 | Rake $0.00
+Dealt to POPCHOW288 [7h] [5c]
+Dealt to PolarFox [5s 3s 9d] [Jd]
+Dealt to malibu dan [Jc] [4h]
+PolarFox checks
+malibu dan checks
+POPCHOW288 bets $0.04
+PolarFox folds
+malibu dan folds
+Uncalled bet ($0.04) returned to POPCHOW288
+POPCHOW288 does not show
+*** SUMMARY ***
+Total pot $0.13
+Seat 1: POPCHOW288 did not show and won $0.13
+Seat 2: mulliongc folded on the 3rd Street and did not bet
+Seat 4: Oakes folded on the 3rd Street and did not bet
+Seat 5: PolarFox folded on the 4th Street
+Seat 6: FateFellShortThisTime folded on the 3rd Street and did not bet
+Seat 7: malibu dan folded on the 4th Street
+Seat 8: BiggieSlick folded on the 3rd Street and did not bet

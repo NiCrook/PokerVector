@@ -1,0 +1,30 @@
+[package]
+name = "pokervector"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+regex = "1.10"
+chrono = "0.4"
+anyhow = "1.0"
+thiserror = "1.0"
+glob = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+ort = { version = "2.0.0-rc.11", features = ["ndarray"] }
+ndarray = "0.17"
+tokenizers = { version = "0.21", default-features = false, features = ["progressbar", "fancy-regex"] }
+qdrant-client = "1.13"
+tokio = { version = "1", features = ["full"] }
+hf-hub = "0.4"
+rmcp = { version = "0.15", features = ["server", "transport-io", "schemars"] }
+schemars = "1"
+dirs = "5"
+toml = "0.8"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+tempfile = "3"

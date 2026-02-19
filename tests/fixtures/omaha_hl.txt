@@ -1,0 +1,49 @@
+Hand #2672067858 - Omaha H/L (Fixed Limit) - $0.02/$0.04 - 2026/02/16 03:39:26 UTC
+Simpson 6-max Seat #3 is the button
+Seat 1: Robbie56355 ($1.35)
+Seat 2: bmiller2670 ($4.13)
+Seat 3: PolarFox ($4.12)
+Seat 4: Lost It ($1.23)
+Seat 5: whhaaatt ($0.39) is sitting out
+Seat 6: bootanuts ($1.28)
+Lost It posts the small blind $0.01
+bootanuts posts the big blind $0.02
+*** HOLE CARDS ***
+Dealt to PolarFox [Td 9d Th 5s]
+Robbie56355 calls $0.02
+bmiller2670 calls $0.02
+PolarFox calls $0.02
+Lost It calls $0.01
+bootanuts checks
+*** FLOP *** [7c 5d 2h]
+Main pot $0.10 | Rake $0.00
+Lost It checks
+bootanuts checks
+Robbie56355 checks
+bmiller2670 checks
+PolarFox checks
+*** TURN *** [7c 5d 2h] [3s]
+Main pot $0.10 | Rake $0.00
+Lost It bets $0.04
+bootanuts calls $0.04
+Robbie56355 folds
+bmiller2670 folds
+PolarFox folds
+*** RIVER *** [7c 5d 2h 3s] [3d]
+Main pot $0.18 | Rake $0.00
+Lost It bets $0.04
+bootanuts calls $0.04
+*** SHOW DOWN ***
+Main pot $0.25 | Rake $0.01
+Lost It shows [3c 6s Tc Jc] (HI - three of a kind, Set of Threes [3s 3d 3c Jc 7c] | LO - [7,6,5,3,2])
+bootanuts shows [8s 4s 7h Qc] (HI - two pair, Sevens and Threes [7h 7c 3s 3d Qc] | LO - [7,5,4,3,2])
+bootanuts collected $0.12 from main pot
+Lost It collected $0.13 from main pot
+*** SUMMARY ***
+Total pot $0.25 | Rake $0.01
+Board [7c 5d 2h 3s 3d]
+Seat 1: Robbie56355 folded on the Turn
+Seat 2: bmiller2670 folded on the Turn
+Seat 3: PolarFox (button) folded on the Turn
+Seat 4: Lost It (small blind) showed [3c 6s Tc Jc] and won $0.13 with HI - three of a kind, Set of Threes [3s 3d 3c Jc 7c] | LO - [7,6,5,3,2]
+Seat 6: bootanuts (big blind) showed [8s 4s 7h Qc] and won $0.12 with HI - two pair, Sevens and Threes [7h 7c 3s 3d Qc] | LO - [7,5,4,3,2]

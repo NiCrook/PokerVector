@@ -1,0 +1,37 @@
+Hand #2672141689 - Omaha (Pot Limit) - $0.01/$0.02 - 2026/02/16 05:54:54 UTC
+Hoffman 6-max Seat #4 is the button
+Seat 1: Jorgescu ($2.04)
+Seat 2: DEATH2619 ($1.48)
+Seat 4: PolarFox ($2.00)
+Seat 6: EmuSwag ($4.58)
+EmuSwag posts the small blind $0.01
+Jorgescu posts the big blind $0.02
+*** HOLE CARDS ***
+Dealt to PolarFox [6d 9h 3c Ac]
+DEATH2619 folds
+PolarFox calls $0.02
+EmuSwag raises $0.07 to $0.08
+Jorgescu calls $0.06
+PolarFox raises $0.30 to $0.32
+EmuSwag raises $0.96 to $1.04
+Jorgescu folds
+PolarFox raises $1.68 to $2.00 and is all-in
+EmuSwag calls $0.96
+*** FLOP *** [7d Qs Th]
+Main pot $3.88 | Rake $0.20
+*** TURN *** [7d Qs Th] [8c]
+Main pot $3.88 | Rake $0.20
+*** RIVER *** [7d Qs Th 8c] [Tc]
+Main pot $3.88 | Rake $0.20
+*** SHOW DOWN ***
+Main pot $3.88 | Rake $0.20
+PolarFox shows [6d 9h 3c Ac] (a straight, Ten high [Th 9h 8c 7d 6d])
+EmuSwag shows [Ad Ah Jh 2d] (two pair, Aces and Tens [Ah Ad Th Tc Qs])
+PolarFox collected $3.88 from main pot
+*** SUMMARY ***
+Total pot $3.88 | Rake $0.14 | JP Fee $0.06
+Board [7d Qs Th 8c Tc]
+Seat 1: Jorgescu (big blind) folded on the Pre-Flop
+Seat 2: DEATH2619 folded on the Pre-Flop and did not bet
+Seat 4: PolarFox (button) showed [6d 9h 3c Ac] and won $3.88 with a straight, Ten high [Th 9h 8c 7d 6d]
+Seat 6: EmuSwag (small blind) showed [Ad Ah Jh 2d] and lost with two pair, Aces and Tens [Ah Ad Th Tc Qs]

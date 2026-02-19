@@ -1,0 +1,47 @@
+Hand #2651601073 - Holdem (No Limit) - $0.01/$0.02 - 2026/01/22 11:18:52 UTC
+McCook 9-max Seat #7 is the button
+Seat 1: Ddrupp ($5.79)
+Seat 2: PolarFox ($2.00)
+Seat 3: Freddeyz ($3.40)
+Seat 4: PokerBossBabe ($2.52)
+Seat 6: ksedoks ($0.77)
+Seat 7: SIA73 ($2.14)
+Seat 8: ScientistRUS ($2.00)
+Seat 9: CPTMYK713 ($0.97)
+ScientistRUS posts the small blind $0.01
+CPTMYK713 posts the big blind $0.02
+*** HOLE CARDS ***
+Dealt to PolarFox [8s 8h]
+Ddrupp folds
+PolarFox raises $0.04 to $0.04
+Freddeyz calls $0.04
+PokerBossBabe raises $0.19 to $0.19
+ksedoks folds
+SIA73 folds
+ScientistRUS folds
+CPTMYK713 folds
+PolarFox raises $1.96 to $2.00 and is all-in
+Freddeyz folds
+PokerBossBabe calls $1.81
+*** FLOP *** [8c 3c Kh]
+Main pot $3.87 | Rake $0.20
+*** TURN *** [8c 3c Kh] [5h]
+Main pot $3.87 | Rake $0.20
+*** RIVER *** [8c 3c Kh 5h] [Th]
+Main pot $3.87 | Rake $0.20
+*** SHOW DOWN ***
+Main pot $3.87 | Rake $0.20
+PolarFox shows [8s 8h] (three of a kind, Set of Eights [8s 8h 8c Kh Th])
+PokerBossBabe shows [Jh Js] (a pair of Jacks [Js Jh Kh Th 8c])
+PolarFox collected $3.87 from main pot
+*** SUMMARY ***
+Total pot $3.87 | Rake $0.14 | JP Fee $0.06
+Board [8c 3c Kh 5h Th]
+Seat 1: Ddrupp folded on the Pre-Flop and did not bet
+Seat 2: PolarFox showed [8s 8h] and won $3.87 with three of a kind, Set of Eights [8s 8h 8c Kh Th]
+Seat 3: Freddeyz folded on the Pre-Flop and did not bet
+Seat 4: PokerBossBabe showed [Jh Js] and lost with a pair of Jacks [Js Jh Kh Th 8c]
+Seat 6: ksedoks folded on the Pre-Flop and did not bet
+Seat 7: SIA73 (button) folded on the Pre-Flop
+Seat 8: ScientistRUS (small blind) folded on the Pre-Flop
+Seat 9: CPTMYK713 (big blind) folded on the Pre-Flop

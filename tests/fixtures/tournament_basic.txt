@@ -1,0 +1,48 @@
+Game Hand #2653060401 - Tournament #34375286 - Holdem (No Limit) - Level 17 (2500.00/5000.00) - 2026/01/24 03:15:18 UTC
+Table '36' 8-max Seat #6 is the button
+Seat 1: Rona123 (77600.00)
+Seat 2: gigadonk (634200.00)
+Seat 3: PolarFox (319545.00)
+Seat 4: Veteran84 (261166.00)
+Seat 5: DudeWhatsUpDoc (308495.00)
+Seat 6: MoCashflow (556097.00)
+Seat 7: DsNy99 (79200.00)
+Seat 8: GraemeReaper (43200.00)
+Rona123 posts ante 600.00
+gigadonk posts ante 600.00
+PolarFox posts ante 600.00
+Veteran84 posts ante 600.00
+DudeWhatsUpDoc posts ante 600.00
+MoCashflow posts ante 600.00
+DsNy99 posts ante 600.00
+GraemeReaper posts ante 600.00
+DsNy99 posts the small blind 2500.00
+GraemeReaper posts the big blind 5000.00
+*** HOLE CARDS ***
+Main pot 4800.00
+Dealt to PolarFox [4c Qc]
+Rona123 folds
+gigadonk raises 13650.00 to 13650.00
+PolarFox folds
+Veteran84 calls 13650.00
+DudeWhatsUpDoc folds
+MoCashflow folds
+DsNy99 folds
+GraemeReaper folds
+*** FLOP *** [7s 4h Qd]
+Main pot 39600.00
+gigadonk bets 29700.00
+Veteran84 folds
+Uncalled bet (29700.00) returned to gigadonk
+gigadonk does not show
+*** SUMMARY ***
+Total pot 39600.00
+Board [7s 4h Qd]
+Seat 1: Rona123 folded on the Pre-Flop and did not bet
+Seat 2: gigadonk did not show and won 39600.00
+Seat 3: PolarFox folded on the Pre-Flop and did not bet
+Seat 4: Veteran84 folded on the Flop
+Seat 5: DudeWhatsUpDoc folded on the Pre-Flop and did not bet
+Seat 6: MoCashflow (button) folded on the Pre-Flop
+Seat 7: DsNy99 (small blind) folded on the Pre-Flop
+Seat 8: GraemeReaper (big blind) folded on the Pre-Flop

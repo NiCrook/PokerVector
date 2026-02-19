@@ -1,0 +1,21 @@
+Hand #2672063986 - Holdem (No Limit) - $0.01/$0.02 - 2026/02/16 03:34:15 UTC
+Cassoday 6-max Seat #1 is the button
+Seat 1: RUABADFISH2 ($2.00)
+Seat 2: PolarFox ($2.00)
+RUABADFISH2 posts ante $0.10
+PolarFox posts ante $0.10
+*** HOLE CARDS ***
+Main pot $0.20 | Rake $0.00
+Dealt to PolarFox [4d 7c]
+*** FLOP *** [Ks 6c 5s]
+Main pot $0.19 | Rake $0.01
+PolarFox bets $0.02
+RUABADFISH2 folds
+Uncalled bet ($0.02) returned to PolarFox
+PolarFox does not show
+*** SUMMARY ***
+BombPot
+Total pot $0.19 | Rake $0.01
+Board [Ks 6c 5s]
+Seat 1: RUABADFISH2 folded on the Flop
+Seat 2: PolarFox did not show and won $0.19

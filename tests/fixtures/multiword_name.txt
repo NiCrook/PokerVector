@@ -1,0 +1,51 @@
+Game Hand #2653099812 - Tournament #34375286 - Holdem (No Limit) - Level 23 (10000.00/20000.00) - 2026/01/24 04:03:17 UTC
+Table '15' 8-max Seat #6 is the button
+Seat 1: Cheeseley (586729.00)
+Seat 2: verybadlizard (112588.00)
+Seat 3: topo76 (132672.00)
+Seat 4: Coop032 (404758.00)
+Seat 5: PolarFox (754338.00)
+Seat 6: MRLUCKBOX (304261.00)
+Seat 7: Lost It (407532.00)
+Cheeseley posts ante 2500.00
+verybadlizard posts ante 2500.00
+topo76 posts ante 2500.00
+Coop032 posts ante 2500.00
+PolarFox posts ante 2500.00
+MRLUCKBOX posts ante 2500.00
+Lost It posts ante 2500.00
+Lost It posts the small blind 10000.00
+Cheeseley posts the big blind 20000.00
+*** HOLE CARDS ***
+Main pot 17500.00
+Dealt to PolarFox [6d 8d]
+verybadlizard folds
+topo76 folds
+Coop032 folds
+PolarFox folds
+MRLUCKBOX raises 53750.00 to 53750.00
+Lost It folds
+Cheeseley raises 564229.00 to 584229.00 and is all-in
+MRLUCKBOX calls 248011.00 and is all-in
+Uncalled bet (282468.00) returned to Cheeseley
+*** FLOP *** [2d Js 5h]
+Main pot 631022.00
+*** TURN *** [2d Js 5h] [4s]
+Main pot 631022.00
+*** RIVER *** [2d Js 5h 4s] [Jh]
+Main pot 631022.00
+*** SHOW DOWN ***
+Main pot 631022.00
+Cheeseley shows [Ah Qh] (a pair of Jacks [Js Jh Ah Qh 5h])
+MRLUCKBOX shows [Ac Tc] (a pair of Jacks [Js Jh Ac Tc 5h])
+Cheeseley collected 631022.00 from main pot
+*** SUMMARY ***
+Total pot 631022.00
+Board [2d Js 5h 4s Jh]
+Seat 1: Cheeseley (big blind) showed [Ah Qh] and won 631022.00 with a pair of Jacks [Js Jh Ah Qh 5h] with the kicker Queen
+Seat 2: verybadlizard folded on the Pre-Flop and did not bet
+Seat 3: topo76 folded on the Pre-Flop and did not bet
+Seat 4: Coop032 folded on the Pre-Flop and did not bet
+Seat 5: PolarFox folded on the Pre-Flop and did not bet
+Seat 6: MRLUCKBOX (button) showed [Ac Tc] and lost with a pair of Jacks [Js Jh Ac Tc 5h]
+Seat 7: Lost It (small blind) folded on the Pre-Flop

@@ -1,0 +1,28 @@
+# Build artifacts
+/target/
+
+# Cargo lock is committed for binaries (this is a binary project)
+# Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ONNX model cache (auto-downloaded at runtime)
+*.onnx
+
+# User config (contains local paths)
+# ~/.pokervector/ is outside repo, no action needed
+
+# Environment / secrets
+.env
