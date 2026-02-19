@@ -85,6 +85,21 @@ Accounts are keyed on `(site, hero)` — merge logic prevents duplicates. `manua
 - Bomb pots: `BombPot` line appears in `*** SUMMARY ***` section
 - H/L: show descriptions contain `HI -` and `| LO -`, split pots have multiple `collected` lines
 
+## Git Conventions
+
+Commit messages follow the format: `type(scope): message`
+
+The `message` should read as: "this commit will {message}".
+
+**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`
+
+**Examples:**
+- `feat(mcp): add find_leaks tool`
+- `fix(parser): handle missing ante in tournament headers`
+- `refactor(stats): extract StatAccumulator for per-position tracking`
+- `test(sessions): add tilt detection unit tests`
+- `docs(plans): add build plans for roadmap features`
+
 ## Test Data
 
 `PolarFox/` contains 18 real ACR hand history files covering cash games, tournaments, antes, side pots, split pots, multi-word player names, sitting out, all-in scenarios, Omaha H/L, 5-Card Omaha, 7-Card Stud H/L, and bomb pots. Test fixtures in `tests/fixtures/` are extracted from these files.
