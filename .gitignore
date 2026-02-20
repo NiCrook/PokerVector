@@ -26,3 +26,6 @@ Desktop.ini
 
 # Environment / secrets
 .env
+
+# Real Hand Histories
+realHands/
