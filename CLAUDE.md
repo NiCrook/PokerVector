@@ -28,7 +28,7 @@ Qdrant must be running for import/status/mcp: `docker run -p 6333:6333 -p 6334:6
 
 ## Architecture
 
-**Full pipeline:** Raw HH text → `split_hands()` → per-hand text → `AcrParser::parse_hand()` → `Hand` struct → `summarize()` → `Embedder::embed()` → `VectorStore::upsert()` → Qdrant
+**Full pipeline:** Raw HH text → `split_hands()` → per-hand text → `AcrParser::parse_hand()` → `Hand` struct → `summarize()` + `encode_action_sequence()` → `Embedder::embed_batch()` (both) → `VectorStore::upsert()` (named vectors: "summary" + "action") → Qdrant
 
 **MCP server flow:** Client JSON-RPC call → `rmcp` dispatch → tool method on `PokerVectorMcp` → query Qdrant (search/scroll) → JSON response over stdout
 
@@ -37,11 +37,12 @@ Qdrant must be running for import/status/mcp: `docker run -p 6333:6333 -p 6334:6
 - `src/parsers/mod.rs` — `SiteParser` trait, `parse_auto()` auto-detection, utilities (`parse_card`, `parse_money`, `split_hands`, `calculate_position`).
 - `src/parsers/acr.rs` — ACR parser. Two-pass name resolution (longest-first) for multi-word player names. Supports Hold'em, Omaha, 5-Card Omaha, 7-Card Stud (with stud streets, `brings in`, no-button tables). State machine: Preflop/3rd Street → ... → Showdown → Summary. Bomb pot detection via summary `BombPot` line.
 - `src/summarizer.rs` — Deterministic `Hand` → natural language summary for embedding.
-- `src/embedder.rs` — ONNX Runtime (`ort`) + `tokenizers` + `hf-hub` for all-MiniLM-L6-v2 (384-dim). `Embedder::embed()` requires `&mut self`. Model auto-downloads on first run.
-- `src/storage.rs` — Qdrant wrapper. `VectorStore` handles upsert, search, scroll, dedup. Stores full `Hand` as JSON in payload.
-- `src/search.rs` — Semantic search with Qdrant metadata filters (`build_filter` + `search_hands`).
+- `src/action_encoder.rs` — Structured action sequence encoding. `encode_action_sequence()` converts a `Hand` into a stakes-normalized, anonymized betting line (e.g. `PRE: HERO_OPEN(3bb) V1_3BET(9bb)`). Uses PotTracker for accurate sizing, ActionLabel classification (open/3bet/4bet/cbet/raise multipliers), BB normalization (preflop) and pot-fraction sizing (postflop).
+- `src/embedder.rs` — ONNX Runtime (`ort`) + `tokenizers` + `hf-hub` for BGE-small-en-v1.5 (384-dim, 512 token limit). `Embedder::embed()` requires `&mut self`. Model auto-downloads on first run.
+- `src/storage.rs` — Qdrant wrapper with named vectors ("summary" + "action"). `VectorStore` handles upsert (`HandEmbeddings`), search by vector name, scroll, dedup. `get_hand_vector()` retrieves stored embeddings by name. Stores full `Hand` as JSON in payload.
+- `src/search.rs` — Search with Qdrant metadata filters. `SearchMode` enum (Semantic/Action) routes to the appropriate named vector. `search_similar_actions()` finds structurally similar hands by ID.
 - `src/stats.rs` — 25+ aggregate stats (VPIP, PFR, 3-bet%, c-bet, steal, etc.) computed in-memory from `Vec<Hand>`. Also `list_villains`.
-- `src/mcp.rs` — MCP server via `rmcp` 0.15. `PokerVectorMcp` struct with `#[tool_router]`/`#[tool_handler]` macros. Four tools: `search_hands`, `get_hand`, `get_stats`, `list_villains`. Uses `Parameters<T>` wrapper for tool arguments.
+- `src/mcp.rs` — MCP server via `rmcp` 0.15. `PokerVectorMcp` struct with `#[tool_router]`/`#[tool_handler]` macros. Seven tools: `search_hands` (with `search_mode` param), `get_hand`, `get_stats`, `list_villains`, `list_sessions`, `review_session`, `search_similar_hands`. Uses `Parameters<T>` wrapper for tool arguments.
 - `src/config.rs` — Persistent config at `~/.pokervector/config.toml`. Structs: `SiteKind`, `Account`, `QdrantConfig`, `Config`. Load/save/merge logic. Qdrant URL and collection name come from config (no hardcoded values in main.rs).
 - `src/scanner.rs` — Auto-detection of installed poker clients. ACR scanner checks `C:\AmericasCardroom\handHistory\` for account subdirectories. `scan_all()` aggregates all site scanners.
 - `src/main.rs` — CLI via clap: `import`, `status`, `mcp`, `scan`, `add-account` subcommands. `import` with no path imports all configured accounts. `mcp` with no `--hero` uses first configured account. MCP mode logs to stderr (stdout is protocol).
