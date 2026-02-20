@@ -1,3 +1,4 @@
+mod action_encoder;
 mod config;
 mod parsers;
 mod types;

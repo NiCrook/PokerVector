@@ -1,3 +1,4 @@
+pub mod action_encoder;
 pub mod config;
 pub mod parsers;
 pub mod types;
