@@ -137,15 +137,28 @@ async fn import_one(
             .iter()
             .map(|h| summarizer::summarize(h))
             .collect();
+        let action_encodings: Vec<String> = to_process
+            .iter()
+            .map(|h| action_encoder::encode_action_sequence(h, hero))
+            .collect();
 
-        let text_refs: Vec<&str> = summaries.iter().map(|s| s.as_str()).collect();
-        let embeddings = embedder.embed_batch(&text_refs)?;
+        let summary_refs: Vec<&str> = summaries.iter().map(|s| s.as_str()).collect();
+        let action_refs: Vec<&str> = action_encodings.iter().map(|s| s.as_str()).collect();
 
-        let batch: Vec<(&types::Hand, &str, Vec<f32>)> = to_process
+        let summary_embeddings = embedder.embed_batch(&summary_refs)?;
+        let action_embeddings = embedder.embed_batch(&action_refs)?;
+
+        let batch: Vec<(&types::Hand, &str, &str, storage::HandEmbeddings)> = to_process
             .into_iter()
             .zip(summaries.iter())
-            .zip(embeddings.into_iter())
-            .map(|((hand, summary), embedding)| (hand, summary.as_str(), embedding))
+            .zip(action_encodings.iter())
+            .zip(summary_embeddings.into_iter().zip(action_embeddings.into_iter()))
+            .map(|(((hand, summary), action_enc), (sum_emb, act_emb))| {
+                (hand, summary.as_str(), action_enc.as_str(), storage::HandEmbeddings {
+                    summary: sum_emb,
+                    action: act_emb,
+                })
+            })
             .collect();
 
         let batch_count = batch.len() as u64;

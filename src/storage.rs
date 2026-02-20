@@ -2,8 +2,9 @@ use anyhow::{Context, Result};
 use qdrant_client::qdrant::{
     CreateCollectionBuilder, Distance, Filter, GetPointsBuilder, PointStruct,
     SearchParamsBuilder, SearchPointsBuilder, UpsertPointsBuilder, VectorParamsBuilder,
-    ScrollPointsBuilder, PointId,
+    ScrollPointsBuilder, PointId, vectors_output::VectorsOptions,
 };
+use qdrant_client::qdrant::VectorsConfigBuilder;
 use qdrant_client::Qdrant;
 use serde_json::json;
 use std::collections::HashMap;
@@ -23,6 +24,11 @@ pub struct SearchResult {
     pub payload: HashMap<String, serde_json::Value>,
 }
 
+pub struct HandEmbeddings {
+    pub summary: Vec<f32>,
+    pub action: Vec<f32>,
+}
+
 impl VectorStore {
     pub async fn new(url: &str, collection: &str) -> Result<Self> {
         let client = Qdrant::from_url(url)
@@ -35,6 +41,7 @@ impl VectorStore {
     }
 
     /// Create collection if it doesn't already exist.
+    /// Uses named vectors ("summary" and "action"), both 384-dim cosine.
     pub async fn ensure_collection(&self) -> Result<()> {
         let exists = self
             .client
@@ -43,26 +50,70 @@ impl VectorStore {
             .context("Failed to check collection existence")?;
 
         if !exists {
+            let mut vectors_config = VectorsConfigBuilder::default();
+            vectors_config.add_named_vector_params(
+                "summary",
+                VectorParamsBuilder::new(384, Distance::Cosine),
+            );
+            vectors_config.add_named_vector_params(
+                "action",
+                VectorParamsBuilder::new(384, Distance::Cosine),
+            );
+
             self.client
                 .create_collection(
                     CreateCollectionBuilder::new(&self.collection)
-                        .vectors_config(VectorParamsBuilder::new(384, Distance::Cosine)),
+                        .vectors_config(vectors_config),
                 )
                 .await
                 .context("Failed to create collection")?;
+        } else {
+            // Check if the existing collection uses named vectors
+            let info = self
+                .client
+                .collection_info(&self.collection)
+                .await
+                .context("Failed to get collection info")?;
+
+            if let Some(result) = &info.result {
+                if let Some(ref config) = result.config {
+                    if let Some(ref vectors_config) = config.params {
+                        if let Some(ref vc) = vectors_config.vectors_config {
+                            use qdrant_client::qdrant::vectors_config::Config;
+                            match &vc.config {
+                                Some(Config::Params(_)) => {
+                                    anyhow::bail!(
+                                        "Collection '{}' uses the old single-vector schema. \
+                                         Delete it and re-import:\n  \
+                                         curl -X DELETE http://localhost:6333/collections/{}\n  \
+                                         cargo run -- import",
+                                        self.collection,
+                                        self.collection
+                                    );
+                                }
+                                Some(Config::ParamsMap(_)) => {
+                                    // Named vectors — correct schema
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Ok(())
     }
 
-    /// Upsert a single hand with its summary and embedding.
+    /// Upsert a single hand with its summary, action encoding, and embeddings.
     pub async fn upsert_hand(
         &self,
         hand: &Hand,
         summary: &str,
-        embedding: Vec<f32>,
+        action_encoding: &str,
+        embeddings: HandEmbeddings,
     ) -> Result<()> {
-        let point = build_point(hand, summary, embedding);
+        let point = build_point(hand, summary, action_encoding, embeddings);
         self.client
             .upsert_points(UpsertPointsBuilder::new(&self.collection, vec![point]).wait(true))
             .await
@@ -73,11 +124,13 @@ impl VectorStore {
     /// Upsert a batch of hands.
     pub async fn upsert_hands_batch(
         &self,
-        items: Vec<(&Hand, &str, Vec<f32>)>,
+        items: Vec<(&Hand, &str, &str, HandEmbeddings)>,
     ) -> Result<()> {
         let points: Vec<PointStruct> = items
             .into_iter()
-            .map(|(hand, summary, embedding)| build_point(hand, summary, embedding))
+            .map(|(hand, summary, action_encoding, embeddings)| {
+                build_point(hand, summary, action_encoding, embeddings)
+            })
             .collect();
 
         self.client
@@ -87,14 +140,16 @@ impl VectorStore {
         Ok(())
     }
 
-    /// Semantic search over stored hands.
+    /// Search over stored hands using a named vector.
     pub async fn search(
         &self,
+        vector_name: &str,
         query_embedding: Vec<f32>,
         limit: u64,
         filter: Option<Filter>,
     ) -> Result<Vec<SearchResult>> {
         let mut builder = SearchPointsBuilder::new(&self.collection, query_embedding, limit)
+            .vector_name(vector_name)
             .with_payload(true)
             .params(SearchParamsBuilder::default().exact(false));
 
@@ -137,6 +192,47 @@ impl VectorStore {
                 }
             })
             .collect())
+    }
+
+    /// Retrieve a specific named vector for a hand by its point ID.
+    pub async fn get_hand_vector(
+        &self,
+        hand_id: u64,
+        vector_name: &str,
+    ) -> Result<Option<Vec<f32>>> {
+        let point_id: PointId = hand_id.into();
+        let result = self
+            .client
+            .get_points(
+                GetPointsBuilder::new(&self.collection, vec![point_id])
+                    .with_payload(false)
+                    .with_vectors(true),
+            )
+            .await
+            .context("Failed to get hand vector")?;
+
+        if let Some(point) = result.result.into_iter().next() {
+            if let Some(vectors) = point.vectors {
+                match vectors.vectors_options {
+                    Some(VectorsOptions::Vectors(named)) => {
+                        if let Some(vector_output) = named.vectors.into_iter()
+                            .find(|(k, _)| k == vector_name)
+                            .map(|(_, v)| v)
+                        {
+                            // Use deprecated .data field — into_vector() returns
+                            // vector::Vector which is a different type
+                            #[allow(deprecated)]
+                            let data = vector_output.data;
+                            if !data.is_empty() {
+                                return Ok(Some(data));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// Check if a hand already exists by ID.
@@ -236,7 +332,12 @@ impl VectorStore {
     }
 }
 
-fn build_point(hand: &Hand, summary: &str, embedding: Vec<f32>) -> PointStruct {
+fn build_point(
+    hand: &Hand,
+    summary: &str,
+    action_encoding: &str,
+    embeddings: HandEmbeddings,
+) -> PointStruct {
     let hero_name = hand.hero.as_deref().unwrap_or("");
     let hero_pos = hand
         .hero_position
@@ -333,6 +434,7 @@ fn build_point(hand: &Hand, summary: &str, embedding: Vec<f32>) -> PointStruct {
         "went_to_showdown": went_to_showdown,
         "timestamp": hand.timestamp,
         "summary": summary,
+        "action_encoding": action_encoding,
         "hand_json": hand_json,
         "pot_type": pot_type,
         "opponent_names": opponent_names,
@@ -345,9 +447,15 @@ fn build_point(hand: &Hand, summary: &str, embedding: Vec<f32>) -> PointStruct {
         payload["pot_amount"] = json!(pot);
     }
 
+    // Named vectors
+    let vectors: HashMap<String, Vec<f32>> = HashMap::from([
+        ("summary".to_string(), embeddings.summary),
+        ("action".to_string(), embeddings.action),
+    ]);
+
     PointStruct::new(
         hand.id,
-        embedding,
+        vectors,
         payload
             .as_object()
             .unwrap()
@@ -385,12 +493,19 @@ mod tests {
 
     #[tokio::test]
     #[ignore] // Requires Qdrant running
-    async fn test_ensure_collection() {
-        let store = VectorStore::new("http://localhost:6334", "test_poker_hands")
+    async fn test_ensure_collection_named_vectors() {
+        let store = VectorStore::new("http://localhost:6334", "test_named_vectors")
             .await
             .unwrap();
+
+        // Clean up if exists from previous run
+        let _ = store.client.delete_collection("test_named_vectors").await;
+
         store.ensure_collection().await.unwrap();
         let count = store.count().await.unwrap();
         assert_eq!(count, 0);
+
+        // Clean up
+        let _ = store.client.delete_collection("test_named_vectors").await;
     }
 }

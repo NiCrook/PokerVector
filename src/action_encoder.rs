@@ -539,7 +539,7 @@ fn format_classified_action(ca: &ClassifiedAction) -> String {
 }
 
 /// Detect walk: hero is BB, hero won, and no voluntary actions (call/bet/raise) preflop.
-fn is_walk(hand: &Hand, hero: &str, preflop_actions: &[&Action]) -> bool {
+fn is_walk(hand: &Hand, _hero: &str, preflop_actions: &[&Action]) -> bool {
     if hand.result.hero_result != HeroResult::Won {
         return false;
     }

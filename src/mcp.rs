@@ -39,6 +39,8 @@ impl PokerVectorMcp {
 pub struct SearchHandsParams {
     #[schemars(description = "Natural language search query (e.g. 'hero 3-bets from the button')")]
     pub query: String,
+    #[schemars(description = "Search mode: 'semantic' (default, matches narrative descriptions) or 'action' (matches betting line structure)")]
+    pub search_mode: Option<String>,
     #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
     pub position: Option<String>,
     #[schemars(description = "Filter by pot type: SRP, 3bet, 4bet, limp, walk")]
@@ -56,6 +58,16 @@ pub struct SearchHandsParams {
     #[schemars(description = "Filter by betting limit: no_limit, pot_limit, fixed_limit")]
     pub betting_limit: Option<String>,
     #[schemars(description = "Max results to return (default 10)")]
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SearchSimilarParams {
+    #[schemars(description = "Hand ID to find similar hands for")]
+    pub hand_id: u64,
+    #[schemars(description = "Similarity mode: 'action' (default, matches betting structure), 'semantic' (matches narrative)")]
+    pub mode: Option<String>,
+    #[schemars(description = "Max results (default 10)")]
     pub limit: Option<u64>,
 }
 
@@ -115,8 +127,13 @@ impl PokerVectorMcp {
         Parameters(params): Parameters<SearchHandsParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let mut embedder = self.embedder.lock().await;
+        let mode = match params.search_mode.as_deref() {
+            Some("action") => search::SearchMode::Action,
+            _ => search::SearchMode::Semantic,
+        };
         let search_params = SearchParams {
             query: params.query,
+            mode,
             position: params.position,
             pot_type: params.pot_type,
             villain: params.villain,
@@ -168,6 +185,7 @@ impl PokerVectorMcp {
         // Build a filter from optional params
         let filter_params = SearchParams {
             query: String::new(),
+            mode: search::SearchMode::default(),
             position: params.position,
             pot_type: params.pot_type,
             villain: params.villain,
@@ -222,6 +240,7 @@ impl PokerVectorMcp {
         // Scroll all cash hands
         let filter_params = SearchParams {
             query: String::new(),
+            mode: search::SearchMode::default(),
             position: None,
             pot_type: None,
             villain: None,
@@ -275,6 +294,7 @@ impl PokerVectorMcp {
         // Scroll all cash hands
         let filter_params = SearchParams {
             query: String::new(),
+            mode: search::SearchMode::default(),
             position: None,
             pot_type: None,
             villain: None,
@@ -344,6 +364,32 @@ impl PokerVectorMcp {
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
+
+    #[tool(description = "Find hands with similar betting structure or narrative to a given hand ID. Default mode is 'action' (betting pattern similarity).")]
+    async fn search_similar_hands(
+        &self,
+        Parameters(params): Parameters<SearchSimilarParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let vector_name = match params.mode.as_deref() {
+            Some("semantic") => "summary",
+            _ => "action",
+        };
+        let limit = params.limit.unwrap_or(10);
+
+        let results = search::search_similar_actions(
+            &self.store,
+            params.hand_id,
+            vector_name,
+            limit,
+            None,
+        )
+        .await
+        .map_err(|e| mcp_error(&format!("Similar search failed: {}", e)))?;
+
+        let json = serde_json::to_string_pretty(&results)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
 }
 
 #[tool_handler]
@@ -361,10 +407,11 @@ impl ServerHandler for PokerVectorMcp {
                 website_url: None,
             },
             instructions: Some(
-                "PokerVector: query your poker hand histories. Use search_hands for semantic search, \
+                "PokerVector: query your poker hand histories. Use search_hands for semantic or action-pattern search, \
                  get_hand for full hand details, get_stats for aggregate statistics, \
                  list_villains for opponent summaries, list_sessions to see cash game sessions, \
-                 and review_session for detailed session analysis with stats and notable hands."
+                 review_session for detailed session analysis, \
+                 and search_similar_hands to find structurally similar hands by ID."
                     .to_string(),
             ),
         }
