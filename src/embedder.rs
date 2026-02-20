@@ -13,7 +13,7 @@ impl Embedder {
     /// Create a new embedder, downloading the model on first run via hf-hub.
     pub fn new() -> Result<Self> {
         let api = hf_hub::api::sync::Api::new().context("Failed to create HuggingFace API")?;
-        let repo = api.model("sentence-transformers/all-MiniLM-L6-v2".to_string());
+        let repo = api.model("Xenova/bge-small-en-v1.5".to_string());
 
         let model_path = repo
             .get("onnx/model.onnx")
