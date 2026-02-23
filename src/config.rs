@@ -26,46 +26,10 @@ pub struct Account {
     pub manual: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QdrantConfig {
-    #[serde(default = "default_qdrant_url")]
-    pub url: String,
-    #[serde(default = "default_collection")]
-    pub collection: String,
-}
-
-fn default_qdrant_url() -> String {
-    "http://localhost:6334".to_string()
-}
-
-fn default_collection() -> String {
-    "poker_hands".to_string()
-}
-
-impl Default for QdrantConfig {
-    fn default() -> Self {
-        Self {
-            url: default_qdrant_url(),
-            collection: default_collection(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub accounts: Vec<Account>,
-    #[serde(default)]
-    pub qdrant: QdrantConfig,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            accounts: Vec::new(),
-            qdrant: QdrantConfig::default(),
-        }
-    }
 }
 
 /// Returns `~/.pokervector/data/` (LanceDB storage directory).
@@ -153,7 +117,6 @@ mod tests {
                 path: PathBuf::from(r"C:\AmericasCardroom\handHistory\PolarFox"),
                 manual: false,
             }],
-            qdrant: QdrantConfig::default(),
         };
 
         let toml_str = toml::to_string_pretty(&config).unwrap();
@@ -163,8 +126,6 @@ mod tests {
         assert_eq!(parsed.accounts[0].hero, "PolarFox");
         assert_eq!(parsed.accounts[0].site, SiteKind::Acr);
         assert!(!parsed.accounts[0].manual);
-        assert_eq!(parsed.qdrant.url, "http://localhost:6334");
-        assert_eq!(parsed.qdrant.collection, "poker_hands");
     }
 
     #[test]
@@ -172,7 +133,6 @@ mod tests {
         let path = PathBuf::from("/nonexistent/path/config.toml");
         let config = load_config_from(&path).unwrap();
         assert!(config.accounts.is_empty());
-        assert_eq!(config.qdrant.url, "http://localhost:6334");
     }
 
     #[test]
@@ -185,10 +145,6 @@ mod tests {
                 path: PathBuf::from("/tmp/test"),
                 manual: true,
             }],
-            qdrant: QdrantConfig {
-                url: "http://custom:6334".to_string(),
-                collection: "custom_hands".to_string(),
-            },
         };
 
         save_config_to(&config, tmp.path()).unwrap();
@@ -197,8 +153,6 @@ mod tests {
         assert_eq!(loaded.accounts.len(), 1);
         assert_eq!(loaded.accounts[0].hero, "TestHero");
         assert!(loaded.accounts[0].manual);
-        assert_eq!(loaded.qdrant.url, "http://custom:6334");
-        assert_eq!(loaded.qdrant.collection, "custom_hands");
     }
 
     #[test]
@@ -210,7 +164,6 @@ mod tests {
                 path: PathBuf::from("/a"),
                 manual: true,
             }],
-            qdrant: QdrantConfig::default(),
         };
 
         let scanned = vec![
@@ -232,7 +185,6 @@ mod tests {
         assert_eq!(merged.accounts.len(), 2);
         assert_eq!(new.len(), 1);
         assert_eq!(new[0].hero, "NewPlayer");
-        // Existing account preserved with original path
         assert_eq!(merged.accounts[0].path, PathBuf::from("/a"));
     }
 
@@ -245,7 +197,6 @@ mod tests {
                 path: PathBuf::from("/a"),
                 manual: false,
             }],
-            qdrant: QdrantConfig::default(),
         };
 
         let scanned = vec![Account {
@@ -269,8 +220,23 @@ hero = "Test"
 path = "/test"
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
-        assert!(!config.accounts[0].manual); // default false
-        assert_eq!(config.qdrant.url, "http://localhost:6334");
-        assert_eq!(config.qdrant.collection, "poker_hands");
+        assert!(!config.accounts[0].manual);
+    }
+
+    #[test]
+    fn test_old_config_with_qdrant_section_still_parses() {
+        let toml_str = r#"
+[[accounts]]
+site = "acr"
+hero = "PolarFox"
+path = "/hands"
+
+[qdrant]
+url = "http://localhost:6334"
+collection = "poker_hands"
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.accounts.len(), 1);
+        assert_eq!(config.accounts[0].hero, "PolarFox");
     }
 }
