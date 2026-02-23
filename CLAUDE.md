@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-PokerVector is a poker hand history engine exposed as an MCP server. Users import hand history files from online poker clients (currently ACR/AmericasCardroom), and the system parses, embeds, and indexes them into Qdrant. Any MCP-compatible client queries the data — PokerVector serves data, the user brings their own LLM.
+PokerVector is a poker hand history engine exposed as an MCP server. Users import hand history files from online poker clients (currently ACR/AmericasCardroom), and the system parses, embeds, and indexes them into LanceDB (embedded database, no external services needed). Any MCP-compatible client queries the data — PokerVector serves data, the user brings their own LLM.
 
 All four MVP milestones are complete (parsers, embedding+storage, search+stats, MCP server). See `MVP.md` for the full spec.
 
@@ -17,26 +17,20 @@ cargo test test_name                  # run a single test by name
 cargo test --test parser_tests        # run only integration tests
 cargo run -- scan                     # auto-detect poker clients, save accounts to config
 cargo run -- add-account ./path/      # manually add an account
-cargo run -- import                   # import all configured accounts (needs Qdrant)
+cargo run -- import                   # import all configured accounts
 cargo run -- import ./PolarFox/       # import a specific directory
-cargo run -- status                   # show config + Qdrant info
-cargo run -- mcp                      # start MCP server, hero from config (needs Qdrant)
+cargo run -- status                   # show config + database info
+cargo run -- mcp                      # start MCP server, hero from config
 cargo run -- mcp --hero PolarFox      # start MCP server with explicit hero
 ```
 
-Qdrant must be running for import/status/mcp. Use a volume to persist data across container restarts:
-
-```bash
-docker run -d -p 6333:6333 -p 6334:6334 -v qdrant_data:/qdrant/storage qdrant/qdrant
-```
-
-Without `-v`, all imported hands are lost when the container stops.
+Data is stored in `~/.pokervector/data/` (LanceDB embedded database). No Docker or external services required.
 
 ## Architecture
 
-**Full pipeline:** Raw HH text → `split_hands()` → per-hand text → `AcrParser::parse_hand()` → `Hand` struct → `summarize()` + `encode_action_sequence()` → `Embedder::embed_batch()` (both) → `VectorStore::upsert()` (named vectors: "summary" + "action") → Qdrant
+**Full pipeline:** Raw HH text → `split_hands()` → per-hand text → `AcrParser::parse_hand()` → `Hand` struct → `summarize()` + `encode_action_sequence()` → `Embedder::embed_batch()` (both) → `VectorStore::upsert()` (named vectors: "summary" + "action") → LanceDB
 
-**MCP server flow:** Client JSON-RPC call → `rmcp` dispatch → tool method on `PokerVectorMcp` → query Qdrant (search/scroll) → JSON response over stdout
+**MCP server flow:** Client JSON-RPC call → `rmcp` dispatch → tool method on `PokerVectorMcp` → query LanceDB (search/scroll) → JSON response over stdout
 
 **Key modules:**
 - `src/types.rs` — Site-agnostic types. `Hand` is the central struct (Serialize/Deserialize). Includes `PokerVariant` (Holdem/Omaha/FiveCardOmaha/SevenCardStud), `BettingLimit` (NoLimit/PotLimit/FixedLimit), `StudPlayerCards`, and stud `Street` variants (ThirdStreet through SeventhStreet).
@@ -45,11 +39,11 @@ Without `-v`, all imported hands are lost when the container stops.
 - `src/summarizer.rs` — Deterministic `Hand` → natural language summary for embedding.
 - `src/action_encoder.rs` — Structured action sequence encoding. `encode_action_sequence()` converts a `Hand` into a stakes-normalized, anonymized betting line (e.g. `PRE: HERO_OPEN(3bb) V1_3BET(9bb)`). Uses PotTracker for accurate sizing, ActionLabel classification (open/3bet/4bet/cbet/raise multipliers), BB normalization (preflop) and pot-fraction sizing (postflop).
 - `src/embedder.rs` — ONNX Runtime (`ort`) + `tokenizers` + `hf-hub` for BGE-small-en-v1.5 (384-dim, 512 token limit). `Embedder::embed()` requires `&mut self`. Model auto-downloads on first run.
-- `src/storage.rs` — Qdrant wrapper with named vectors ("summary" + "action"). `VectorStore` handles upsert (`HandEmbeddings`), search by vector name, scroll, dedup. `get_hand_vector()` retrieves stored embeddings by name. Stores full `Hand` as JSON in payload.
-- `src/search.rs` — Search with Qdrant metadata filters. `SearchMode` enum (Semantic/Action) routes to the appropriate named vector. `search_similar_actions()` finds structurally similar hands by ID.
+- `src/storage.rs` — LanceDB wrapper. Single table `poker_hands` with named vector columns `summary` + `action` (384-dim FixedSizeList<Float32>). Data at `~/.pokervector/data/`. `VectorStore` handles upsert via merge-insert (`HandEmbeddings`), vector search by column name, SQL filter queries, scroll, dedup. Stores full `Hand` as JSON in `hand_json` column.
+- `src/search.rs` — Search with SQL WHERE filters. `build_filter()` returns `Option<String>`. `SearchMode` enum (Semantic/Action) routes to the appropriate named vector column. `search_similar_actions()` finds structurally similar hands by ID.
 - `src/stats.rs` — 25+ aggregate stats (VPIP, PFR, 3-bet%, c-bet, steal, etc.) computed in-memory from `Vec<Hand>`. Also `list_villains`.
 - `src/mcp.rs` — MCP server via `rmcp` 0.15. `PokerVectorMcp` struct with `#[tool_router]`/`#[tool_handler]` macros. Seven tools: `search_hands` (with `search_mode` param), `get_hand`, `get_stats`, `list_villains`, `list_sessions`, `review_session`, `search_similar_hands`. Uses `Parameters<T>` wrapper for tool arguments.
-- `src/config.rs` — Persistent config at `~/.pokervector/config.toml`. Structs: `SiteKind`, `Account`, `QdrantConfig`, `Config`. Load/save/merge logic. Qdrant URL and collection name come from config (no hardcoded values in main.rs).
+- `src/config.rs` — Persistent config at `~/.pokervector/config.toml`. Structs: `SiteKind`, `Account`, `Config`. Load/save/merge logic. `data_dir()` returns `~/.pokervector/data/`.
 - `src/scanner.rs` — Auto-detection of installed poker clients. ACR scanner checks `C:\AmericasCardroom\handHistory\` for account subdirectories. `scan_all()` aggregates all site scanners.
 - `src/main.rs` — CLI via clap: `import`, `status`, `mcp`, `scan`, `add-account` subcommands. `import` with no path imports all configured accounts. `mcp` with no `--hero` uses first configured account. MCP mode logs to stderr (stdout is protocol).
 
@@ -63,11 +57,9 @@ site = "acr"
 hero = "PolarFox"
 path = "C:\\AmericasCardroom\\handHistory\\PolarFox"
 manual = false
-
-[qdrant]
-url = "http://localhost:6334"
-collection = "poker_hands"
 ```
+
+Data stored in `~/.pokervector/data/` (LanceDB embedded database, no configuration needed).
 
 Accounts are keyed on `(site, hero)` — merge logic prevents duplicates. `manual` flag distinguishes user-added accounts from scanner-discovered ones.
 
@@ -76,6 +68,7 @@ Accounts are keyed on `(site, hero)` — merge logic prevents duplicates. `manua
 - `tokenizers` must use `fancy-regex` feature (not `onig`) and disable `esaxx_fast` to avoid CRT conflicts (`/MD` vs `/MT`).
 - `ndarray` must be 0.17 to match `ort` 2.0.0-rc.11.
 - `ort` `Session::run` requires `&mut self`, so embedder is behind `Arc<Mutex<Embedder>>` in MCP server.
+- `protoc` (Protocol Buffers compiler) must be installed for `lance-encoding` build. Install via `choco install protoc`.
 
 ## ACR Format Quirks
 
