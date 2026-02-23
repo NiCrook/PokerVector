@@ -68,6 +68,12 @@ impl Default for Config {
     }
 }
 
+/// Returns `~/.pokervector/data/` (LanceDB storage directory).
+pub fn data_dir() -> PathBuf {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    home.join(".pokervector").join("data")
+}
+
 /// Returns `~/.pokervector/config.toml`.
 pub fn config_path() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));

@@ -34,7 +34,7 @@ enum Commands {
         #[arg(long)]
         hero: Option<String>,
     },
-    /// Show status (config + Qdrant info)
+    /// Show status (config + database info)
     Status,
     /// Start MCP server (stdio transport)
     Mcp {
@@ -202,9 +202,10 @@ async fn main() -> Result<()> {
                     println!("Loading embedding model...");
                     let mut embedder = embedder::Embedder::new()?;
 
-                    println!("Connecting to Qdrant...");
-                    let store = storage::VectorStore::new(&cfg.qdrant.url, &cfg.qdrant.collection).await?;
-                    store.ensure_collection().await?;
+                    println!("Opening database...");
+                    let data_dir = config::data_dir();
+                    let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
+                    store.ensure_table().await?;
 
                     import_one(&path, &hero, &mut embedder, &store).await?;
                 }
@@ -218,9 +219,10 @@ async fn main() -> Result<()> {
                     println!("Loading embedding model...");
                     let mut embedder = embedder::Embedder::new()?;
 
-                    println!("Connecting to Qdrant...");
-                    let store = storage::VectorStore::new(&cfg.qdrant.url, &cfg.qdrant.collection).await?;
-                    store.ensure_collection().await?;
+                    println!("Opening database...");
+                    let data_dir = config::data_dir();
+                    let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
+                    store.ensure_table().await?;
 
                     let mut total_imported = 0u64;
                     let mut total_skipped = 0u64;
@@ -256,21 +258,16 @@ async fn main() -> Result<()> {
                         account.hero, account.site, account.path.display(), tag);
                 }
             }
-            println!("Qdrant: {} / {}", cfg.qdrant.url, cfg.qdrant.collection);
+            let data_dir = config::data_dir();
+            println!("Data: {}", data_dir.display());
             println!();
 
-            match storage::VectorStore::new(&cfg.qdrant.url, &cfg.qdrant.collection).await {
+            match storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await {
                 Ok(store) => match store.count().await {
                     Ok(count) => println!("Stored hands: {}", count),
-                    Err(_) => {
-                        println!("Cannot connect to Qdrant at {}.", cfg.qdrant.url);
-                        println!("Start Qdrant: docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant");
-                    }
+                    Err(e) => println!("Failed to read database: {}", e),
                 },
-                Err(_) => {
-                    println!("Cannot connect to Qdrant at {}.", cfg.qdrant.url);
-                    println!("Start Qdrant: docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant");
-                }
+                Err(e) => println!("Failed to open database: {}", e),
             }
         }
         Commands::Mcp { hero } => {
@@ -283,9 +280,10 @@ async fn main() -> Result<()> {
             eprintln!("Loading embedding model...");
             let embedder = embedder::Embedder::new()?;
 
-            eprintln!("Connecting to Qdrant...");
+            eprintln!("Opening database...");
+            let data_dir = config::data_dir();
             let store =
-                storage::VectorStore::new(&cfg.qdrant.url, &cfg.qdrant.collection).await?;
+                storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
 
             eprintln!("Starting MCP server (hero: {})...", hero);
             let server = mcp::PokerVectorMcp::new(store, embedder, hero);

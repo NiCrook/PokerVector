@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
-use qdrant_client::qdrant::{Condition, Filter, PointId};
 
 use crate::embedder::Embedder;
-use crate::storage::VectorStore;
+use crate::storage::{SearchResult, VectorStore};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum SearchMode {
@@ -25,51 +24,43 @@ pub struct SearchParams {
     pub limit: Option<u64>,
 }
 
-#[derive(serde::Serialize)]
-pub struct HandSearchResult {
-    pub hand_id: u64,
-    pub score: f32,
-    pub summary: String,
-    pub hero_position: String,
-    pub hero_cards: String,
-    pub stakes: String,
-    pub hero_result: String,
-    pub pot_type: String,
+fn sanitize(value: &str) -> String {
+    value.replace('\'', "''")
 }
 
-/// Build a Qdrant filter from search parameters.
-pub fn build_filter(params: &SearchParams) -> Option<Filter> {
+/// Build a SQL WHERE filter from search parameters.
+pub fn build_filter(params: &SearchParams) -> Option<String> {
     let mut conditions = Vec::new();
 
     if let Some(ref pos) = params.position {
-        conditions.push(Condition::matches("hero_position", pos.clone()));
+        conditions.push(format!("hero_position = '{}'", sanitize(pos)));
     }
     if let Some(ref pt) = params.pot_type {
-        conditions.push(Condition::matches("pot_type", pt.clone()));
+        conditions.push(format!("pot_type = '{}'", sanitize(pt)));
     }
     if let Some(ref villain) = params.villain {
-        conditions.push(Condition::matches("opponent_names", villain.clone()));
+        conditions.push(format!("opponent_names LIKE '%,{},%'", sanitize(villain)));
     }
     if let Some(ref stakes) = params.stakes {
-        conditions.push(Condition::matches("stakes", stakes.clone()));
+        conditions.push(format!("stakes = '{}'", sanitize(stakes)));
     }
     if let Some(ref result) = params.result {
-        conditions.push(Condition::matches("hero_result", result.clone()));
+        conditions.push(format!("hero_result = '{}'", sanitize(result)));
     }
     if let Some(ref gt) = params.game_type {
-        conditions.push(Condition::matches("game_type", gt.clone()));
+        conditions.push(format!("game_type = '{}'", sanitize(gt)));
     }
     if let Some(ref v) = params.variant {
-        conditions.push(Condition::matches("variant", v.clone()));
+        conditions.push(format!("variant = '{}'", sanitize(v)));
     }
     if let Some(ref bl) = params.betting_limit {
-        conditions.push(Condition::matches("betting_limit", bl.clone()));
+        conditions.push(format!("betting_limit = '{}'", sanitize(bl)));
     }
 
     if conditions.is_empty() {
         None
     } else {
-        Some(Filter::must(conditions))
+        Some(conditions.join(" AND "))
     }
 }
 
@@ -78,7 +69,7 @@ pub async fn search_hands(
     store: &VectorStore,
     embedder: &mut Embedder,
     params: SearchParams,
-) -> Result<Vec<HandSearchResult>> {
+) -> Result<Vec<SearchResult>> {
     let limit = params.limit.unwrap_or(10);
     let filter = build_filter(&params);
 
@@ -96,29 +87,7 @@ pub async fn search_hands(
         .await
         .context("Search failed")?;
 
-    Ok(results
-        .into_iter()
-        .map(|r| {
-            let get_str = |key: &str| -> String {
-                r.payload
-                    .get(key)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string()
-            };
-
-            HandSearchResult {
-                hand_id: r.hand_id,
-                score: r.score,
-                summary: r.summary,
-                hero_position: get_str("hero_position"),
-                hero_cards: get_str("hero_cards"),
-                stakes: get_str("stakes"),
-                hero_result: get_str("hero_result"),
-                pot_type: get_str("pot_type"),
-            }
-        })
-        .collect())
+    Ok(results)
 }
 
 /// Search for hands similar to a given hand by its stored vector.
@@ -127,8 +96,8 @@ pub async fn search_similar_actions(
     hand_id: u64,
     vector_name: &str,
     limit: u64,
-    filter: Option<Filter>,
-) -> Result<Vec<HandSearchResult>> {
+    filter: Option<String>,
+) -> Result<Vec<SearchResult>> {
     let embedding = store
         .get_hand_vector(hand_id, vector_name)
         .await
@@ -136,38 +105,18 @@ pub async fn search_similar_actions(
         .ok_or_else(|| anyhow::anyhow!("Hand {} not found or has no '{}' vector", hand_id, vector_name))?;
 
     // Exclude the source hand from results
-    let exclude = Condition::has_id(vec![PointId::from(hand_id)]);
-    let mut combined_filter = filter.unwrap_or_default();
-    combined_filter.must_not.push(exclude.into());
+    let exclude = format!("id != {}", hand_id);
+    let combined = match filter {
+        Some(f) => format!("{} AND {}", f, exclude),
+        None => exclude,
+    };
 
     let results = store
-        .search(vector_name, embedding, limit, Some(combined_filter))
+        .search(vector_name, embedding, limit, Some(combined))
         .await
         .context("Similar search failed")?;
 
-    Ok(results
-        .into_iter()
-        .map(|r| {
-            let get_str = |key: &str| -> String {
-                r.payload
-                    .get(key)
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string()
-            };
-
-            HandSearchResult {
-                hand_id: r.hand_id,
-                score: r.score,
-                summary: r.summary,
-                hero_position: get_str("hero_position"),
-                hero_cards: get_str("hero_cards"),
-                stakes: get_str("stakes"),
-                hero_result: get_str("hero_result"),
-                pot_type: get_str("pot_type"),
-            }
-        })
-        .collect())
+    Ok(results)
 }
 
 #[cfg(test)]
@@ -208,9 +157,7 @@ mod tests {
             limit: None,
         };
         let filter = build_filter(&params);
-        assert!(filter.is_some());
-        let f = filter.unwrap();
-        assert_eq!(f.must.len(), 1);
+        assert_eq!(filter, Some("hero_position = 'BTN'".to_string()));
     }
 
     #[test]
@@ -228,9 +175,50 @@ mod tests {
             betting_limit: None,
             limit: Some(5),
         };
-        let filter = build_filter(&params);
-        assert!(filter.is_some());
-        let f = filter.unwrap();
-        assert_eq!(f.must.len(), 5);
+        let filter = build_filter(&params).unwrap();
+        assert!(filter.contains("hero_position = 'BTN'"));
+        assert!(filter.contains("pot_type = '3bet'"));
+        assert!(filter.contains("opponent_names LIKE '%,Fish,%'"));
+        assert!(filter.contains("stakes = '$0.01/$0.02'"));
+        assert!(filter.contains("hero_result = 'won'"));
+        assert!(filter.contains(" AND "));
+    }
+
+    #[test]
+    fn test_sanitize_single_quotes() {
+        let params = SearchParams {
+            query: "test".to_string(),
+            mode: SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: Some("O'Brien".to_string()),
+            stakes: None,
+            result: None,
+            game_type: None,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = build_filter(&params).unwrap();
+        assert!(filter.contains("O''Brien"));
+    }
+
+    #[test]
+    fn test_villain_uses_like_with_commas() {
+        let params = SearchParams {
+            query: "test".to_string(),
+            mode: SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: Some("Fish".to_string()),
+            stakes: None,
+            result: None,
+            game_type: None,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = build_filter(&params).unwrap();
+        assert_eq!(filter, "opponent_names LIKE '%,Fish,%'");
     }
 }
