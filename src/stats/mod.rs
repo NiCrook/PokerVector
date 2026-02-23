@@ -64,6 +64,10 @@ mod types {
     pub struct VillainSummary {
         pub name: String,
         pub hands: u64,
+        pub net_profit: f64,
+        pub net_profit_bb: f64,
+        pub hands_won: u64,
+        pub hands_lost: u64,
         pub vpip: f64,
         pub pfr: f64,
         pub aggression_factor: f64,

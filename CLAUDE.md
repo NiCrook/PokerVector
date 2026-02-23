@@ -24,7 +24,13 @@ cargo run -- mcp                      # start MCP server, hero from config (need
 cargo run -- mcp --hero PolarFox      # start MCP server with explicit hero
 ```
 
-Qdrant must be running for import/status/mcp: `docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant`
+Qdrant must be running for import/status/mcp. Use a volume to persist data across container restarts:
+
+```bash
+docker run -d -p 6333:6333 -p 6334:6334 -v qdrant_data:/qdrant/storage qdrant/qdrant
+```
+
+Without `-v`, all imported hands are lost when the container stops.
 
 ## Architecture
 

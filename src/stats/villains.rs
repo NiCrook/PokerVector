@@ -6,6 +6,7 @@ use super::preflop::*;
 use super::cbet::cbet_analysis;
 use super::steal::steal_analysis;
 use super::postflop::wwsf_analysis;
+use super::helpers::{hero_invested, hero_collected, big_blind_size};
 
 /// List villain stats for all opponents with at least `min_hands` shared hands.
 pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainSummary> {
@@ -45,6 +46,10 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
             let mut steal_cnt = 0u64;
             let mut wwsf_opp = 0u64;
             let mut wwsf_cnt = 0u64;
+            let mut net_profit = 0.0f64;
+            let mut net_profit_bb = 0.0f64;
+            let mut hands_won = 0u64;
+            let mut hands_lost = 0u64;
 
             for hand in &player_hands {
                 let (is_vpip, is_pfr) = preflop_vpip_pfr(hand, &name);
@@ -76,6 +81,21 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
                         _ => {}
                     }
                 }
+
+                // Hero profit tracking for hands where this villain was present
+                let invested = hero_invested(hand, hero);
+                let collected = hero_collected(hand, hero);
+                let hand_profit = collected - invested;
+                net_profit += hand_profit;
+                let bb = big_blind_size(hand);
+                if bb > 0.0 {
+                    net_profit_bb += hand_profit / bb;
+                }
+                if hand_profit > 0.0 {
+                    hands_won += 1;
+                } else if hand_profit < 0.0 {
+                    hands_lost += 1;
+                }
             }
 
             let pct = |num: u64, den: u64| -> f64 {
@@ -85,6 +105,10 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
             VillainSummary {
                 name,
                 hands: total,
+                net_profit,
+                net_profit_bb,
+                hands_won,
+                hands_lost,
                 vpip: pct(vpip_count, total),
                 pfr: pct(pfr_count, total),
                 aggression_factor: if postflop_calls > 0 { postflop_bets_raises as f64 / postflop_calls as f64 } else if postflop_bets_raises > 0 { f64::INFINITY } else { 0.0 },
@@ -98,7 +122,7 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
         })
         .collect();
 
-    villains.sort_by(|a, b| b.hands.cmp(&a.hands));
+    villains.sort_by(|a, b| b.net_profit.partial_cmp(&a.net_profit).unwrap_or(std::cmp::Ordering::Equal));
     villains
 }
 
