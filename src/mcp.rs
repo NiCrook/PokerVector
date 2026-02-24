@@ -361,6 +361,36 @@ pub struct GetBankrollGraphParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetSqueezeSpotsParams {
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Max results to return (default 20)")]
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetVillainProfileParams {
+    #[schemars(description = "Villain name to profile")]
+    pub villain: String,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetPositionalMatchupsParams {
+    #[schemars(description = "Villain name to analyze matchups against")]
+    pub villain: String,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetDatabaseHealthParams {}
 
 // Tool implementations
@@ -2196,6 +2226,278 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Find hands where hero was in a squeeze-eligible spot (raise + cold call in front of hero preflop). Shows what hero did and the outcome.")]
+    async fn get_squeeze_spots(
+        &self,
+        Parameters(params): Parameters<GetSqueezeSpotsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let limit = params.limit.unwrap_or(20) as usize;
+        let hero = &self.hero;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let mut results: Vec<serde_json::Value> = Vec::new();
+        for hand in &hands {
+            if results.len() >= limit { break; }
+
+            // Look for raise + call before hero acts preflop
+            let mut saw_raise = false;
+            let mut saw_cold_call = false;
+            let mut hero_action: Option<&str> = None;
+
+            for a in &hand.actions {
+                if a.street != Street::Preflop { continue; }
+                if a.player == *hero {
+                    if saw_raise && saw_cold_call {
+                        hero_action = Some(match &a.action_type {
+                            ActionType::Raise { .. } => "squeeze",
+                            ActionType::Call { .. } => "call",
+                            ActionType::Fold => "fold",
+                            _ => continue,
+                        });
+                    }
+                    break;
+                }
+                match &a.action_type {
+                    ActionType::Raise { .. } | ActionType::Bet { .. } => {
+                        if saw_raise {
+                            // 3bet before hero = not a squeeze spot
+                            break;
+                        }
+                        saw_raise = true;
+                    }
+                    ActionType::Call { .. } => {
+                        if saw_raise { saw_cold_call = true; }
+                    }
+                    _ => {}
+                }
+            }
+
+            if let Some(action) = hero_action {
+                let bb = stats::big_blind_size(hand);
+                let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+                let cards: String = hand.hero_cards.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+
+                results.push(serde_json::json!({
+                    "hand_id": hand.id,
+                    "stakes": format!("{}", hand.game_type),
+                    "hero_position": hand.hero_position.map(|p| p.to_string()),
+                    "hero_cards": cards,
+                    "hero_action": action,
+                    "hero_result": format!("{:?}", hand.result.hero_result),
+                    "profit_bb": format!("{:.1}", if bb > 0.0 { profit / bb } else { 0.0 }),
+                }));
+            }
+        }
+
+        // Summary counts
+        let squeezed = results.iter().filter(|r| r["hero_action"] == "squeeze").count();
+        let called = results.iter().filter(|r| r["hero_action"] == "call").count();
+        let folded = results.iter().filter(|r| r["hero_action"] == "fold").count();
+
+        let response = serde_json::json!({
+            "total_spots": results.len(),
+            "squeezed": squeezed,
+            "called": called,
+            "folded": folded,
+            "hands": results,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Comprehensive villain report: stats, showdown hands, positional breakdown, and profit summary in one call. Saves orchestrating multiple tool calls.")]
+    async fn get_villain_profile(
+        &self,
+        Parameters(params): Parameters<GetVillainProfileParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let villain = &params.villain;
+        let hero = &self.hero;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: Some(villain.clone()),
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        // Villain stats
+        let villain_stats = stats::calculate_stats(&hands, villain);
+
+        // Showdown hands (up to 10)
+        let mut showdowns: Vec<serde_json::Value> = Vec::new();
+        for hand in &hands {
+            if showdowns.len() >= 10 { break; }
+            if let Some(action) = hand.actions.iter().find(|a| a.player == *villain && matches!(a.action_type, ActionType::Shows { .. })) {
+                if let ActionType::Shows { cards, description, .. } = &action.action_type {
+                    let cs: String = cards.iter().map(|c| match c { Some(c) => c.to_string(), None => "?".to_string() }).collect::<Vec<_>>().join(" ");
+                    let board: String = hand.board.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+                    showdowns.push(serde_json::json!({
+                        "hand_id": hand.id,
+                        "villain_cards": cs,
+                        "description": description,
+                        "board": board,
+                        "pot_type": stats::classify_pot_type(hand),
+                    }));
+                }
+            }
+        }
+
+        // Positional breakdown: hero profit vs this villain by hero position
+        let mut pos_data: HashMap<String, (u64, f64)> = HashMap::new();
+        for hand in &hands {
+            let pos = hand.hero_position.map(|p| p.to_string()).unwrap_or_else(|| "?".to_string());
+            let bb = stats::big_blind_size(hand);
+            let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+            let profit_bb = if bb > 0.0 { profit / bb } else { 0.0 };
+            let entry = pos_data.entry(pos).or_insert((0, 0.0));
+            entry.0 += 1;
+            entry.1 += profit_bb;
+        }
+        let positional: Vec<serde_json::Value> = pos_data.iter().map(|(pos, (count, profit_bb))| {
+            serde_json::json!({
+                "position": pos,
+                "hands": count,
+                "hero_profit_bb": format!("{:.1}", profit_bb),
+                "hero_bb_per_100": format!("{:.1}", if *count > 0 { profit_bb / *count as f64 * 100.0 } else { 0.0 }),
+            })
+        }).collect();
+
+        // Overall profit
+        let mut total_profit_bb = 0.0f64;
+        for hand in &hands {
+            let bb = stats::big_blind_size(hand);
+            let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+            if bb > 0.0 { total_profit_bb += profit / bb; }
+        }
+
+        let response = serde_json::json!({
+            "villain": villain,
+            "total_hands": hands.len(),
+            "hero_profit_bb": format!("{:.1}", total_profit_bb),
+            "stats": villain_stats,
+            "showdown_hands": showdowns,
+            "positional_breakdown": positional,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Hero vs villain broken down by hero position. Shows hands played and hero profit at each position to identify where hero has an edge or is exploited.")]
+    async fn get_positional_matchups(
+        &self,
+        Parameters(params): Parameters<GetPositionalMatchupsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let villain = &params.villain;
+        let hero = &self.hero;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: Some(villain.clone()),
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        // Group by hero position
+        let mut by_pos: HashMap<String, Vec<&crate::types::Hand>> = HashMap::new();
+        for hand in &hands {
+            let pos = hand.hero_position.map(|p| p.to_string()).unwrap_or_else(|| "?".to_string());
+            by_pos.entry(pos).or_default().push(hand);
+        }
+
+        let mut positions: Vec<serde_json::Value> = by_pos.iter().map(|(pos, group)| {
+            let count = group.len() as u64;
+            let mut profit_bb = 0.0f64;
+            let mut won = 0u64;
+            let mut lost = 0u64;
+            for hand in group {
+                let bb = stats::big_blind_size(hand);
+                let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+                if bb > 0.0 { profit_bb += profit / bb; }
+                match hand.result.hero_result {
+                    HeroResult::Won => won += 1,
+                    HeroResult::Lost => lost += 1,
+                    _ => {}
+                }
+            }
+            serde_json::json!({
+                "hero_position": pos,
+                "hands": count,
+                "won": won,
+                "lost": lost,
+                "hero_profit_bb": format!("{:.1}", profit_bb),
+                "hero_bb_per_100": format!("{:.1}", if count > 0 { profit_bb / count as f64 * 100.0 } else { 0.0 }),
+            })
+        }).collect();
+
+        positions.sort_by(|a, b| {
+            let pa: f64 = a["hero_profit_bb"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
+            let pb: f64 = b["hero_profit_bb"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
+            pb.partial_cmp(&pa).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let response = serde_json::json!({
+            "villain": villain,
+            "total_hands": hands.len(),
+            "positions": positions,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Get database health diagnostics: total hands, variant/stakes breakdowns, date range, data quality checks, and storage size.")]
     async fn get_database_health(
         &self,
@@ -2314,6 +2616,9 @@ impl ServerHandler for PokerVectorMcp {
                  get_equity_spots for all-in hands with holdings and pot odds, \
                  get_multiway_stats for stats in multiway pots, \
                  get_bankroll_graph for cumulative profit over time, \
+                 get_squeeze_spots for squeeze-eligible preflop situations, \
+                 get_villain_profile for comprehensive single-villain reports, \
+                 get_positional_matchups for hero vs villain by position, \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),
