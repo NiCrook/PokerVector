@@ -1,5 +1,6 @@
 mod action_encoder;
 mod config;
+mod importer;
 mod parsers;
 mod types;
 mod summarizer;
@@ -57,126 +58,25 @@ enum Commands {
     },
 }
 
-/// Import a single directory of hand histories.
+/// Import a single directory with CLI progress output.
 async fn import_one(
     path: &Path,
     hero: &str,
     embedder: &mut embedder::Embedder,
     store: &storage::VectorStore,
-) -> Result<(u64, u64, u64)> {
+) -> Result<importer::ImportResult> {
     println!("Importing from: {}", path.display());
     println!("Hero: {}", hero);
     println!();
 
-    // Phase 1: Parse all hands
-    let pattern = path.join("*.txt");
-    let pattern_str = pattern.to_string_lossy();
-
-    let mut all_hands: Vec<types::Hand> = Vec::new();
-    let mut total_errors = 0u64;
-
-    for entry in glob::glob(&pattern_str)? {
-        let file_path = entry?;
-        let filename = file_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown");
-
-        let content = std::fs::read_to_string(&file_path)?;
-        let results = parsers::parse_auto(&content, hero);
-
-        let mut file_hands = 0;
-        let mut file_errors = 0;
-
-        for result in results {
-            match result {
-                Ok(hand) => {
-                    file_hands += 1;
-                    all_hands.push(hand);
-                }
-                Err(e) => {
-                    file_errors += 1;
-                    eprintln!("  Error: {}", e);
-                }
-            }
-        }
-
-        println!("{}: {} hands, {} errors", filename, file_hands, file_errors);
-        total_errors += file_errors;
-    }
-
-    println!();
-    println!("Parsed {} hands ({} errors)", all_hands.len(), total_errors);
-
-    if all_hands.is_empty() {
-        println!("No hands to import.");
-        return Ok((0, 0, total_errors));
-    }
-
-    // Phase 2: Summarize, embed, and store in batches
-    let batch_size = 32;
-    let mut imported = 0u64;
-    let mut skipped = 0u64;
-    let total = all_hands.len();
-
-    for chunk in all_hands.chunks(batch_size) {
-        let mut to_process: Vec<&types::Hand> = Vec::new();
-        for hand in chunk {
-            if store.hand_exists(hand.id).await? {
-                skipped += 1;
-            } else {
-                to_process.push(hand);
-            }
-        }
-
-        if to_process.is_empty() {
-            continue;
-        }
-
-        let summaries: Vec<String> = to_process
-            .iter()
-            .map(|h| summarizer::summarize(h))
-            .collect();
-        let action_encodings: Vec<String> = to_process
-            .iter()
-            .map(|h| action_encoder::encode_action_sequence(h, hero))
-            .collect();
-
-        let summary_refs: Vec<&str> = summaries.iter().map(|s| s.as_str()).collect();
-        let action_refs: Vec<&str> = action_encodings.iter().map(|s| s.as_str()).collect();
-
-        let summary_embeddings = embedder.embed_batch(&summary_refs)?;
-        let action_embeddings = embedder.embed_batch(&action_refs)?;
-
-        let batch: Vec<(&types::Hand, &str, &str, storage::HandEmbeddings)> = to_process
-            .into_iter()
-            .zip(summaries.iter())
-            .zip(action_encodings.iter())
-            .zip(summary_embeddings.into_iter().zip(action_embeddings.into_iter()))
-            .map(|(((hand, summary), action_enc), (sum_emb, act_emb))| {
-                (hand, summary.as_str(), action_enc.as_str(), storage::HandEmbeddings {
-                    summary: sum_emb,
-                    action: act_emb,
-                })
-            })
-            .collect();
-
-        let batch_count = batch.len() as u64;
-        store.upsert_hands_batch(batch).await?;
-        imported += batch_count;
-
-        print!(
-            "\rImported {}/{} hands ({} skipped)...",
-            imported, total, skipped
-        );
-    }
+    let result = importer::import_directory(path, hero, embedder, store).await?;
 
     println!(
-        "\rImported {} hands, {} skipped, {} errors.     ",
-        imported, skipped, total_errors
+        "Imported {} hands, {} skipped, {} errors.",
+        result.imported, result.skipped, result.errors
     );
 
-    Ok((imported, skipped, total_errors))
+    Ok(result)
 }
 
 #[tokio::main]
@@ -187,11 +87,14 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Import { path, hero } => {
-            let cfg = config::load_config()?;
+            let mut cfg = config::load_config()?;
+
+            let mut total_imported = 0u64;
+            let mut total_skipped = 0u64;
+            let mut total_errors = 0u64;
 
             match path {
                 Some(path) => {
-                    // Explicit path: single import (same as before)
                     let hero = hero.unwrap_or_else(|| {
                         path.file_name()
                             .and_then(|n| n.to_str())
@@ -206,10 +109,12 @@ async fn main() -> Result<()> {
                     let data_dir = config::data_dir();
                     let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
 
-                    import_one(&path, &hero, &mut embedder, &store).await?;
+                    let result = import_one(&path, &hero, &mut embedder, &store).await?;
+                    total_imported = result.imported;
+                    total_skipped = result.skipped;
+                    total_errors = result.errors;
                 }
                 None => {
-                    // No path: import all configured accounts
                     if cfg.accounts.is_empty() {
                         println!("No accounts configured. Run `pokervector scan` or `pokervector add-account <path>` first.");
                         return Ok(());
@@ -222,17 +127,13 @@ async fn main() -> Result<()> {
                     let data_dir = config::data_dir();
                     let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
 
-                    let mut total_imported = 0u64;
-                    let mut total_skipped = 0u64;
-                    let mut total_errors = 0u64;
-
                     for account in &cfg.accounts {
                         println!("=== {} ({}) ===", account.hero, account.site);
-                        let (imported, skipped, errors) =
+                        let result =
                             import_one(&account.path, &account.hero, &mut embedder, &store).await?;
-                        total_imported += imported;
-                        total_skipped += skipped;
-                        total_errors += errors;
+                        total_imported += result.imported;
+                        total_skipped += result.skipped;
+                        total_errors += result.errors;
                         println!();
                     }
 
@@ -240,6 +141,15 @@ async fn main() -> Result<()> {
                         total_imported, total_skipped, total_errors);
                 }
             }
+
+            // Save import log
+            cfg.last_import = Some(config::ImportLog {
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                hands_imported: total_imported,
+                hands_skipped: total_skipped,
+                errors: total_errors,
+            });
+            config::save_config(&cfg)?;
         }
         Commands::Status => {
             let cfg = config::load_config()?;
@@ -284,7 +194,7 @@ async fn main() -> Result<()> {
                 storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
 
             eprintln!("Starting MCP server (hero: {})...", hero);
-            let server = mcp::PokerVectorMcp::new(store, embedder, hero);
+            let server = mcp::PokerVectorMcp::new(store, embedder, hero, cfg.accounts);
             let service = server.serve(rmcp::transport::stdio()).await?;
             service.waiting().await?;
         }

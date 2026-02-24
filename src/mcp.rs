@@ -7,27 +7,32 @@ use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::config;
 use crate::embedder::Embedder;
+use crate::importer;
 use crate::search::{self, SearchParams};
 use crate::sessions;
 use crate::stats;
 use crate::storage::VectorStore;
 use crate::summarizer;
+use crate::types::{ActionType, HeroResult, Street};
 
 #[derive(Clone)]
 pub struct PokerVectorMcp {
     store: Arc<VectorStore>,
     embedder: Arc<Mutex<Embedder>>,
     hero: String,
+    accounts: Vec<config::Account>,
     tool_router: ToolRouter<Self>,
 }
 
 impl PokerVectorMcp {
-    pub fn new(store: VectorStore, embedder: Embedder, hero: String) -> Self {
+    pub fn new(store: VectorStore, embedder: Embedder, hero: String, accounts: Vec<config::Account>) -> Self {
         Self {
             store: Arc::new(store),
             embedder: Arc::new(Mutex::new(embedder)),
             hero,
+            accounts,
             tool_router: Self::tool_router(),
         }
     }
@@ -145,6 +150,35 @@ pub struct ListSessionsParams {
 pub struct ReviewSessionParams {
     #[schemars(description = "Session ID from list_sessions output")]
     pub session_id: u32,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct WatchDirectoryParams {
+    #[schemars(description = "Override path to import from (default: all configured accounts)")]
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetLastImportParams {}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AutoTagHandsParams {
+    #[schemars(description = "Big blind threshold for 'big' tags (default 20)")]
+    pub min_pot_bb: Option<f64>,
+    #[schemars(description = "Max hands per category (default 10)")]
+    pub limit: Option<u64>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetCoolersParams {
+    #[schemars(description = "Minimum pot size in big blinds (default 30)")]
+    pub min_pot_bb: Option<f64>,
+    #[schemars(description = "Max results to return (default 20)")]
+    pub limit: Option<u64>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
 }
 
 // Tool implementations
@@ -552,6 +586,284 @@ impl PokerVectorMcp {
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
+
+    #[tool(description = "Import new hand histories from configured account directories (or a specific path). Updates the database with any new hands found.")]
+    async fn watch_directory(
+        &self,
+        Parameters(params): Parameters<WatchDirectoryParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let mut embedder = self.embedder.lock().await;
+
+        let mut total_imported = 0u64;
+        let mut total_skipped = 0u64;
+        let mut total_errors = 0u64;
+        let mut accounts_checked = 0u64;
+
+        if let Some(path_str) = params.path {
+            let path = std::path::PathBuf::from(&path_str);
+            let result = importer::import_directory(&path, &self.hero, &mut *embedder, &self.store)
+                .await
+                .map_err(|e| mcp_error(&format!("Import failed: {}", e)))?;
+            total_imported += result.imported;
+            total_skipped += result.skipped;
+            total_errors += result.errors;
+            accounts_checked = 1;
+        } else {
+            if self.accounts.is_empty() {
+                return Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::json!({
+                        "error": "No accounts configured. Run `pokervector scan` or `pokervector add-account` first."
+                    }).to_string()
+                )]));
+            }
+            for account in &self.accounts {
+                let result = importer::import_directory(&account.path, &account.hero, &mut *embedder, &self.store)
+                    .await
+                    .map_err(|e| mcp_error(&format!("Import failed for {}: {}", account.hero, e)))?;
+                total_imported += result.imported;
+                total_skipped += result.skipped;
+                total_errors += result.errors;
+                accounts_checked += 1;
+            }
+        }
+
+        // Update import log in config
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        if let Ok(mut cfg) = config::load_config() {
+            cfg.last_import = Some(config::ImportLog {
+                timestamp: timestamp.clone(),
+                hands_imported: total_imported,
+                hands_skipped: total_skipped,
+                errors: total_errors,
+            });
+            let _ = config::save_config(&cfg);
+        }
+
+        let response = serde_json::json!({
+            "imported": total_imported,
+            "skipped": total_skipped,
+            "errors": total_errors,
+            "accounts_checked": accounts_checked,
+            "timestamp": timestamp,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Get information about the last import operation and total hands in the database.")]
+    async fn get_last_import(
+        &self,
+        Parameters(_params): Parameters<GetLastImportParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let cfg = config::load_config()
+            .map_err(|e| mcp_error(&format!("Failed to load config: {}", e)))?;
+
+        let total_hands = self
+            .store
+            .count()
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to count hands: {}", e)))?;
+
+        let response = serde_json::json!({
+            "last_import": cfg.last_import,
+            "total_hands_in_db": total_hands,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Automatically classify hands into categories: cooler, hero_call, big_bluff, big_win, big_loss. Returns tagged hands grouped by category.")]
+    async fn auto_tag_hands(
+        &self,
+        Parameters(params): Parameters<AutoTagHandsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let min_pot_bb = params.min_pot_bb.unwrap_or(20.0);
+        let limit = params.limit.unwrap_or(10) as usize;
+        let hero = &self.hero;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: None,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let mut coolers: Vec<serde_json::Value> = Vec::new();
+        let mut hero_calls: Vec<serde_json::Value> = Vec::new();
+        let mut big_bluffs: Vec<serde_json::Value> = Vec::new();
+        let mut big_wins: Vec<serde_json::Value> = Vec::new();
+        let mut big_losses: Vec<serde_json::Value> = Vec::new();
+
+        for hand in &hands {
+            let bb = stats::big_blind_size(hand);
+            if bb <= 0.0 {
+                continue;
+            }
+            let invested = stats::hero_invested(hand, hero);
+            let collected = stats::hero_collected(hand, hero);
+            let profit = collected - invested;
+            let profit_bb = profit / bb;
+            let invested_bb = invested / bb;
+            let went_to_showdown = hand.result.hero_result == HeroResult::Won
+                || hand.result.hero_result == HeroResult::Lost;
+            let hero_won = hand.result.hero_result == HeroResult::Won;
+            let hero_lost = hand.result.hero_result == HeroResult::Lost;
+
+            let hand_summary = || {
+                let cards: String = hand.hero_cards.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+                let board: String = hand.board.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+                serde_json::json!({
+                    "hand_id": hand.id,
+                    "stakes": hand.game_type.to_string(),
+                    "hero_cards": cards,
+                    "board": board,
+                    "profit_bb": format!("{:.1}", profit_bb),
+                    "pot_bb": format!("{:.1}", invested_bb + profit_bb.max(0.0)),
+                })
+            };
+
+            // Cooler: went to showdown, hero invested a lot, hero lost
+            if went_to_showdown && hero_lost && invested_bb > min_pot_bb {
+                if coolers.len() < limit {
+                    coolers.push(hand_summary());
+                }
+            }
+
+            // Hero call: hero called on river, went to showdown, hero won
+            if went_to_showdown && hero_won {
+                let hero_called_river = hand.actions.iter().any(|a| {
+                    a.player.as_str() == hero
+                        && a.street == Street::River
+                        && matches!(a.action_type, ActionType::Call { .. })
+                });
+                if hero_called_river && hero_calls.len() < limit {
+                    hero_calls.push(hand_summary());
+                }
+            }
+
+            // Big bluff: hero bet/raised on last street, no showdown, hero won, pot > threshold
+            if hero_won && !went_to_showdown {
+                let hero_bet_last_street = hand.actions.iter().rev().any(|a| {
+                    a.player.as_str() == hero
+                        && matches!(a.action_type, ActionType::Bet { .. } | ActionType::Raise { .. })
+                        && matches!(a.street, Street::River | Street::Turn | Street::Flop)
+                });
+                if hero_bet_last_street && invested_bb > min_pot_bb / 2.0 && big_bluffs.len() < limit {
+                    big_bluffs.push(hand_summary());
+                }
+            }
+
+            // Big win
+            if profit_bb > min_pot_bb && big_wins.len() < limit {
+                big_wins.push(hand_summary());
+            }
+
+            // Big loss
+            if profit_bb < -min_pot_bb && big_losses.len() < limit {
+                big_losses.push(hand_summary());
+            }
+        }
+
+        let response = serde_json::json!({
+            "cooler": { "count": coolers.len(), "hands": coolers },
+            "hero_call": { "count": hero_calls.len(), "hands": hero_calls },
+            "big_bluff": { "count": big_bluffs.len(), "hands": big_bluffs },
+            "big_win": { "count": big_wins.len(), "hands": big_wins },
+            "big_loss": { "count": big_losses.len(), "hands": big_losses },
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Find cooler hands — showdown hands where hero invested heavily and lost. Sorted by pot size descending.")]
+    async fn get_coolers(
+        &self,
+        Parameters(params): Parameters<GetCoolersParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let min_pot_bb = params.min_pot_bb.unwrap_or(30.0);
+        let limit = params.limit.unwrap_or(20) as usize;
+        let hero = &self.hero;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: None,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let mut coolers: Vec<(f64, serde_json::Value)> = Vec::new();
+
+        for hand in &hands {
+            let bb = stats::big_blind_size(hand);
+            if bb <= 0.0 {
+                continue;
+            }
+            let invested = stats::hero_invested(hand, hero);
+            let collected = stats::hero_collected(hand, hero);
+            let profit = collected - invested;
+            let invested_bb = invested / bb;
+            let profit_bb = profit / bb;
+            let went_to_showdown = hand.result.hero_result == HeroResult::Won
+                || hand.result.hero_result == HeroResult::Lost;
+
+            if went_to_showdown && hand.result.hero_result == HeroResult::Lost && invested_bb > min_pot_bb {
+                let cards: String = hand.hero_cards.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+                let board: String = hand.board.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+                let summary = summarizer::summarize(hand);
+                coolers.push((invested_bb, serde_json::json!({
+                    "hand_id": hand.id,
+                    "stakes": hand.game_type.to_string(),
+                    "hero_cards": cards,
+                    "board": board,
+                    "invested_bb": format!("{:.1}", invested_bb),
+                    "profit_bb": format!("{:.1}", profit_bb),
+                    "summary": summary,
+                })));
+            }
+        }
+
+        // Sort by invested BB descending (biggest pots first)
+        coolers.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        let results: Vec<serde_json::Value> = coolers.into_iter().take(limit).map(|(_, v)| v).collect();
+
+        let json = serde_json::to_string_pretty(&results)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
 }
 
 #[tool_handler]
@@ -575,8 +887,11 @@ impl ServerHandler for PokerVectorMcp {
                  review_session for detailed session analysis, \
                  search_similar_hands to find structurally similar hands by ID, \
                  get_table_profitability to see profit by stakes or table, \
-                 get_best_villains for most profitable opponents, \
-                 and get_worst_villains for least profitable opponents."
+                 get_best_villains / get_worst_villains for opponent profitability, \
+                 watch_directory to import new hand histories, \
+                 get_last_import for import status, \
+                 auto_tag_hands to classify hands by archetype (cooler, hero call, bluff, big win/loss), \
+                 and get_coolers to find showdown hands where hero invested heavily and lost."
                     .to_string(),
             ),
         }

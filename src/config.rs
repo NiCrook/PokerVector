@@ -27,9 +27,19 @@ pub struct Account {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ImportLog {
+    pub timestamp: String,
+    pub hands_imported: u64,
+    pub hands_skipped: u64,
+    pub errors: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub accounts: Vec<Account>,
+    #[serde(default)]
+    pub last_import: Option<ImportLog>,
 }
 
 /// Returns `~/.pokervector/data/` (LanceDB storage directory).
@@ -117,6 +127,12 @@ mod tests {
                 path: PathBuf::from(r"C:\AmericasCardroom\handHistory\PolarFox"),
                 manual: false,
             }],
+            last_import: Some(ImportLog {
+                timestamp: "2026-01-01T00:00:00Z".to_string(),
+                hands_imported: 100,
+                hands_skipped: 5,
+                errors: 2,
+            }),
         };
 
         let toml_str = toml::to_string_pretty(&config).unwrap();
@@ -126,6 +142,10 @@ mod tests {
         assert_eq!(parsed.accounts[0].hero, "PolarFox");
         assert_eq!(parsed.accounts[0].site, SiteKind::Acr);
         assert!(!parsed.accounts[0].manual);
+        let log = parsed.last_import.unwrap();
+        assert_eq!(log.hands_imported, 100);
+        assert_eq!(log.hands_skipped, 5);
+        assert_eq!(log.errors, 2);
     }
 
     #[test]
@@ -145,6 +165,7 @@ mod tests {
                 path: PathBuf::from("/tmp/test"),
                 manual: true,
             }],
+            last_import: None,
         };
 
         save_config_to(&config, tmp.path()).unwrap();
@@ -164,6 +185,7 @@ mod tests {
                 path: PathBuf::from("/a"),
                 manual: true,
             }],
+            last_import: None,
         };
 
         let scanned = vec![
@@ -197,6 +219,7 @@ mod tests {
                 path: PathBuf::from("/a"),
                 manual: false,
             }],
+            last_import: None,
         };
 
         let scanned = vec![Account {
