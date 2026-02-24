@@ -8,7 +8,7 @@ Return the original raw hand history text for a hand ID. Useful when the LLM nee
 ### ~~`compare_stats`~~ ✅
 Takes two player names (or hero vs. a villain) and returns a side-by-side stat comparison. Right now the LLM has to call `get_stats` twice and diff them itself.
 
-### `get_range_analysis`
+### ~~`get_range_analysis`~~ ✅
 Given filters (position, pot type, action taken), return the distribution of starting hands the hero/villain played. E.g. "what hands does PolarFox open from the CO?" Returns a frequency table grouped by hand category (pocket pairs, suited broadways, etc.).
 
 ### ~~`get_trends`~~ ✅
