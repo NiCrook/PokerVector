@@ -59,7 +59,7 @@ Group villains by play style using their stat profiles (nit, TAG, LAG, fish, man
 
 ## Multi-Hand Pattern Tools
 
-### `get_sizing_profile`
+### ~~`get_sizing_profile`~~ ✅
 Analyze bet sizing patterns for a player. "Villain bets 1/3 pot with draws and 2/3 with value" — return the distribution of bet sizes by street and outcome.
 
 ### `get_runout_analysis`

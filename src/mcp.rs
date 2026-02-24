@@ -462,6 +462,24 @@ pub struct GetStreetStatsParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetSizingProfileParams {
+    #[schemars(description = "Player name to analyze (defaults to hero)")]
+    pub player: Option<String>,
+    #[schemars(description = "Filter by villain name (only count hands where this villain was present)")]
+    pub villain: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetTrendsParams {
     #[schemars(description = "Time bucket size: 'day', 'week' (default), or 'month'")]
     pub period: Option<String>,
@@ -2878,6 +2896,244 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Analyze bet sizing patterns for a player by street. Shows distribution of bet/raise sizes as fractions of the pot (e.g. 25%, 33%, 50%, 66%, 75%, pot, overbet). Reveals sizing tells — e.g. 'villain bets small with draws and big with value'.")]
+    async fn get_sizing_profile(
+        &self,
+        Parameters(params): Parameters<GetSizingProfileParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let player = params.player.as_deref().unwrap_or(&self.hero);
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: params.villain,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: None,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        if hands.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "streets": {},
+                    "total_hands": 0,
+                    "message": "No hands found matching filters.",
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        // Size buckets as pot fractions
+        // <30% = "tiny", 30-40% = "third", 40-55% = "half", 55-72% = "two_thirds",
+        // 72-88% = "three_quarters", 88-115% = "pot", >115% = "overbet"
+        fn size_bucket(bet_amount: f64, pot_before: f64) -> &'static str {
+            if pot_before <= 0.0 {
+                return "unknown";
+            }
+            let ratio = bet_amount / pot_before;
+            if ratio < 0.30 { "tiny (<30%)" }
+            else if ratio < 0.40 { "third (30-40%)" }
+            else if ratio < 0.55 { "half (40-55%)" }
+            else if ratio < 0.72 { "two-thirds (55-72%)" }
+            else if ratio < 0.88 { "three-quarters (72-88%)" }
+            else if ratio < 1.15 { "pot (88-115%)" }
+            else { "overbet (>115%)" }
+        }
+
+        // Per-street sizing data
+        struct StreetSizing {
+            total_bets: u64,
+            buckets: HashMap<&'static str, u64>,
+            sizes_pct: Vec<f64>, // raw pot-fraction values for avg/median
+        }
+
+        impl StreetSizing {
+            fn new() -> Self {
+                Self { total_bets: 0, buckets: HashMap::new(), sizes_pct: Vec::new() }
+            }
+        }
+
+        let mut preflop = StreetSizing::new();
+        let mut flop = StreetSizing::new();
+        let mut turn = StreetSizing::new();
+        let mut river = StreetSizing::new();
+        let mut total_sizing_actions = 0u64;
+
+        for hand in &hands {
+            let in_hand = hand.players.iter().any(|p| p.name == player && !p.is_sitting_out);
+            if !in_hand {
+                continue;
+            }
+
+            // Track pot with a simple inline tracker
+            let mut pot = 0.0f64;
+            let mut round_invested: HashMap<&str, f64> = HashMap::new();
+            let mut current_street = Street::Preflop;
+
+            for action in &hand.actions {
+                // Detect street change — reset round investments
+                if action.street != current_street {
+                    current_street = action.street;
+                    round_invested.clear();
+                }
+
+                let pot_before = pot;
+
+                match &action.action_type {
+                    ActionType::PostSmallBlind { amount, .. }
+                    | ActionType::PostBigBlind { amount, .. }
+                    | ActionType::PostBlind { amount }
+                    | ActionType::PostAnte { amount }
+                    | ActionType::BringsIn { amount } => {
+                        pot += amount.amount;
+                        *round_invested.entry(&action.player).or_default() += amount.amount;
+                    }
+                    ActionType::Call { amount, .. } => {
+                        pot += amount.amount;
+                        *round_invested.entry(&action.player).or_default() += amount.amount;
+                    }
+                    ActionType::Bet { amount, .. } => {
+                        let amt = amount.amount;
+                        pot += amt;
+                        *round_invested.entry(&action.player).or_default() += amt;
+
+                        if action.player == player {
+                            let sizing = match action.street {
+                                Street::Preflop => &mut preflop,
+                                Street::Flop => &mut flop,
+                                Street::Turn => &mut turn,
+                                Street::River => &mut river,
+                                _ => continue,
+                            };
+                            sizing.total_bets += 1;
+                            total_sizing_actions += 1;
+                            let bucket = size_bucket(amt, pot_before);
+                            *sizing.buckets.entry(bucket).or_default() += 1;
+                            if pot_before > 0.0 {
+                                sizing.sizes_pct.push(amt / pot_before * 100.0);
+                            }
+                        }
+                    }
+                    ActionType::Raise { to, .. } => {
+                        let prev = round_invested.get(action.player.as_str()).copied().unwrap_or(0.0);
+                        let increment = to.amount - prev;
+                        pot += increment;
+                        *round_invested.entry(&action.player).or_default() = to.amount;
+
+                        if action.player == player {
+                            // The "new money" is the raise size relative to pot before
+                            let raise_amount = increment;
+                            let sizing = match action.street {
+                                Street::Preflop => &mut preflop,
+                                Street::Flop => &mut flop,
+                                Street::Turn => &mut turn,
+                                Street::River => &mut river,
+                                _ => continue,
+                            };
+                            sizing.total_bets += 1;
+                            total_sizing_actions += 1;
+                            let bucket = size_bucket(raise_amount, pot_before);
+                            *sizing.buckets.entry(bucket).or_default() += 1;
+                            if pot_before > 0.0 {
+                                sizing.sizes_pct.push(raise_amount / pot_before * 100.0);
+                            }
+                        }
+                    }
+                    ActionType::UncalledBet { amount } => {
+                        pot -= amount.amount;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let sizing_json = |name: &str, s: &mut StreetSizing| -> serde_json::Value {
+            if s.total_bets == 0 {
+                return serde_json::json!({
+                    "street": name,
+                    "total_bets_raises": 0,
+                });
+            }
+
+            s.sizes_pct.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            let avg = s.sizes_pct.iter().sum::<f64>() / s.sizes_pct.len() as f64;
+            let median = if s.sizes_pct.len() % 2 == 0 {
+                let mid = s.sizes_pct.len() / 2;
+                (s.sizes_pct[mid - 1] + s.sizes_pct[mid]) / 2.0
+            } else {
+                s.sizes_pct[s.sizes_pct.len() / 2]
+            };
+
+            let pct = |n: u64| -> f64 {
+                if s.total_bets > 0 { n as f64 / s.total_bets as f64 * 100.0 } else { 0.0 }
+            };
+
+            // Build bucket breakdown, sorted by size order
+            let bucket_order = [
+                "tiny (<30%)", "third (30-40%)", "half (40-55%)",
+                "two-thirds (55-72%)", "three-quarters (72-88%)",
+                "pot (88-115%)", "overbet (>115%)", "unknown",
+            ];
+            let distribution: Vec<serde_json::Value> = bucket_order.iter()
+                .filter_map(|&b| {
+                    let count = s.buckets.get(b).copied().unwrap_or(0);
+                    if count > 0 {
+                        Some(serde_json::json!({
+                            "size": b,
+                            "count": count,
+                            "pct": format!("{:.1}", pct(count)),
+                        }))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            serde_json::json!({
+                "street": name,
+                "total_bets_raises": s.total_bets,
+                "avg_size_pct_pot": format!("{:.1}%", avg),
+                "median_size_pct_pot": format!("{:.1}%", median),
+                "distribution": distribution,
+            })
+        };
+
+        let total_hands = hands.iter()
+            .filter(|h| h.players.iter().any(|p| p.name == player && !p.is_sitting_out))
+            .count();
+
+        let response = serde_json::json!({
+            "player": player,
+            "total_hands": total_hands,
+            "total_sizing_actions": total_sizing_actions,
+            "streets": [
+                sizing_json("preflop", &mut preflop),
+                sizing_json("flop", &mut flop),
+                sizing_json("turn", &mut turn),
+                sizing_json("river", &mut river),
+            ],
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Per-street action frequencies for a player. Shows bet/raise/call/check/fold counts and percentages on each street (flop, turn, river). Goes deeper than aggregate stats to answer 'how often does villain fold to turn barrels?' or 'what is hero's river aggression?'")]
     async fn get_street_stats(
         &self,
@@ -3492,6 +3748,7 @@ impl ServerHandler for PokerVectorMcp {
                  find_leaks for automated leak detection against baseline ranges, \
                  detect_tilt to find sessions where play deviated from baseline, \
                  get_street_stats for per-street action frequencies (flop/turn/river), \
+                 get_sizing_profile for bet sizing distribution analysis by street, \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),
