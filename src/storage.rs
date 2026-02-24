@@ -545,6 +545,15 @@ impl VectorStore {
         Ok(count as u64)
     }
 
+    pub async fn count_filtered(&self, filter: Option<String>) -> Result<u64> {
+        let table = self.table();
+        let count = table
+            .count_rows(filter)
+            .await
+            .context("Failed to count filtered rows")?;
+        Ok(count as u64)
+    }
+
     pub async fn get_hand(&self, hand_id: u64) -> Result<Option<Hand>> {
         let table = self.table();
 

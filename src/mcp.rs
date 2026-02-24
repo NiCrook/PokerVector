@@ -263,6 +263,46 @@ pub struct ReimportHandParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetHandHistoryParams {
+    #[schemars(description = "The hand ID to retrieve raw history text for")]
+    pub hand_id: u64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CompareStatsParams {
+    #[schemars(description = "First player name (defaults to hero)")]
+    pub player_a: Option<String>,
+    #[schemars(description = "Second player name (required)")]
+    pub player_b: String,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CountHandsParams {
+    #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
+    pub position: Option<String>,
+    #[schemars(description = "Filter by pot type: SRP, 3bet, 4bet, limp, walk")]
+    pub pot_type: Option<String>,
+    #[schemars(description = "Filter by villain name")]
+    pub villain: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by result: won, lost, folded")]
+    pub result: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter by betting limit: no_limit, pot_limit, fixed_limit")]
+    pub betting_limit: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetDatabaseHealthParams {}
 
 // Tool implementations
@@ -1615,6 +1655,98 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Return the original raw hand history text for a hand ID. Useful for copy-pasting into forums, solvers, or review tools.")]
+    async fn get_hand_history(
+        &self,
+        Parameters(params): Parameters<GetHandHistoryParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hand = self
+            .store
+            .get_hand(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to retrieve hand: {}", e)))?;
+        match hand {
+            Some(h) => Ok(CallToolResult::success(vec![Content::text(h.raw_text)])),
+            None => Ok(CallToolResult::success(vec![Content::text(format!(
+                "Hand {} not found", params.hand_id
+            ))])),
+        }
+    }
+
+    #[tool(description = "Compare stats side-by-side for two players. Returns both stat profiles in a single response for easy comparison.")]
+    async fn compare_stats(
+        &self,
+        Parameters(params): Parameters<CompareStatsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let player_a = params.player_a.as_deref().unwrap_or(&self.hero);
+        let player_b = &params.player_b;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let stats_a = stats::calculate_stats(&hands, player_a);
+        let stats_b = stats::calculate_stats(&hands, player_b);
+
+        let response = serde_json::json!({
+            "player_a": { "name": player_a, "stats": stats_a },
+            "player_b": { "name": player_b, "stats": stats_b },
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Count hands matching filters without returning hand data. Fast, lightweight way to check how many hands match specific criteria.")]
+    async fn count_hands(
+        &self,
+        Parameters(params): Parameters<CountHandsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: params.position,
+            pot_type: params.pot_type,
+            villain: params.villain,
+            stakes: params.stakes,
+            result: params.result,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: params.betting_limit,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let count = self
+            .store
+            .count_filtered(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to count hands: {}", e)))?;
+
+        let response = serde_json::json!({ "count": count });
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Get database health diagnostics: total hands, variant/stakes breakdowns, date range, data quality checks, and storage size.")]
     async fn get_database_health(
         &self,
@@ -1724,6 +1856,9 @@ impl ServerHandler for PokerVectorMcp {
                  get_similar_villains to find opponents matching a stat profile, \
                  get_preflop_chart to build a preflop hand chart by position (Hold'em only), \
                  reimport_hand to re-parse and re-embed a specific hand, \
+                 get_hand_history to retrieve raw hand history text, \
+                 compare_stats for side-by-side player stat comparison, \
+                 count_hands for fast filtered hand counts, \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),
