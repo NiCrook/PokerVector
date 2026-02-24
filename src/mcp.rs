@@ -407,6 +407,26 @@ pub struct GetPositionalMatchupsParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetDatabaseHealthParams {}
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetTrendsParams {
+    #[schemars(description = "Time bucket size: 'day', 'week' (default), or 'month'")]
+    pub period: Option<String>,
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter by betting limit: no_limit, pot_limit, fixed_limit")]
+    pub betting_limit: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
 // Tool implementations
 
 #[tool_router]
@@ -2626,6 +2646,156 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Show how hero's stats change over time. Buckets hands by day, week, or month and computes key stats (VPIP, PFR, winrate, hands played, etc.) for each period. Useful for answering 'am I improving?' or 'how has my 3-bet% changed?'")]
+    async fn get_trends(
+        &self,
+        Parameters(params): Parameters<GetTrendsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+        let period = params.period.as_deref().unwrap_or("week");
+
+        // Validate period
+        if !matches!(period, "day" | "week" | "month") {
+            return Err(mcp_error("Invalid period: must be 'day', 'week', or 'month'"));
+        }
+
+        // Build filter
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: params.betting_limit,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let mut hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        if hands.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "periods": [],
+                    "total_hands": 0,
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        // Sort by timestamp
+        hands.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+        // Bucket hands by period
+        // Timestamp format: "2026/01/22 11:09:21 UTC"
+        let bucket_key = |ts: &str| -> String {
+            let date_part = ts.split(' ').next().unwrap_or(ts); // "2026/01/22"
+            match period {
+                "day" => date_part.to_string(),
+                "month" => {
+                    // "2026/01/22" -> "2026/01"
+                    let parts: Vec<&str> = date_part.split('/').collect();
+                    if parts.len() >= 2 {
+                        format!("{}/{}", parts[0], parts[1])
+                    } else {
+                        date_part.to_string()
+                    }
+                }
+                "week" | _ => {
+                    // Parse date and compute ISO week
+                    let parts: Vec<&str> = date_part.split('/').collect();
+                    if parts.len() == 3 {
+                        let year: i32 = parts[0].parse().unwrap_or(0);
+                        let month: u32 = parts[1].parse().unwrap_or(1);
+                        let day: u32 = parts[2].parse().unwrap_or(1);
+                        // Simple week calculation: find Monday of the week
+                        // days since epoch (2000-01-01 was Saturday, day_of_week=5)
+                        let days = days_from_ymd(year, month, day);
+                        let dow = ((days % 7) + 7) % 7; // 0=Monday for our epoch
+                        let monday = days - dow;
+                        let (my, mm, md) = ymd_from_days(monday);
+                        format!("{:04}/{:02}/{:02}", my, mm, md)
+                    } else {
+                        date_part.to_string()
+                    }
+                }
+            }
+        };
+
+        // Group hands into buckets
+        let mut buckets: Vec<(String, Vec<&crate::types::Hand>)> = Vec::new();
+        for hand in &hands {
+            let key = bucket_key(&hand.timestamp);
+            if let Some(last) = buckets.last_mut() {
+                if last.0 == key {
+                    last.1.push(hand);
+                    continue;
+                }
+            }
+            buckets.push((key, vec![hand]));
+        }
+
+        // Compute stats per bucket
+        let mut cumulative_profit = 0.0f64;
+        let mut periods = Vec::new();
+        for (key, bucket_hands) in &buckets {
+            let owned: Vec<crate::types::Hand> = bucket_hands.iter().map(|h| (*h).clone()).collect();
+            let s = stats::calculate_stats(&owned, hero);
+
+            // Compute period profit
+            let mut period_profit = 0.0f64;
+            for hand in bucket_hands {
+                let invested = stats::hero_invested(hand, hero);
+                let collected = stats::hero_collected(hand, hero);
+                period_profit += collected - invested;
+            }
+            cumulative_profit += period_profit;
+
+            let label = match period {
+                "week" => format!("week of {}", key),
+                _ => key.clone(),
+            };
+
+            periods.push(serde_json::json!({
+                "period": label,
+                "hands": s.hands_played,
+                "vpip": format!("{:.1}", s.vpip),
+                "pfr": format!("{:.1}", s.pfr),
+                "three_bet_pct": format!("{:.1}", s.three_bet_pct),
+                "aggression_factor": format!("{:.2}", s.aggression_factor),
+                "winrate_bb100": format!("{:.1}", s.winrate_bb100),
+                "profit": format!("{:.2}", period_profit),
+                "cumulative_profit": format!("{:.2}", cumulative_profit),
+                "went_to_showdown_pct": format!("{:.1}", s.went_to_showdown_pct),
+                "won_at_showdown_pct": format!("{:.1}", s.won_at_showdown_pct),
+                "cbet_flop": format!("{:.1}", s.cbet_flop),
+                "wwsf": format!("{:.1}", s.wwsf),
+            }));
+        }
+
+        let response = serde_json::json!({
+            "period_type": period,
+            "total_hands": hands.len(),
+            "total_periods": periods.len(),
+            "periods": periods,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Get database health diagnostics: total hands, variant/stakes breakdowns, date range, data quality checks, and storage size.")]
     async fn get_database_health(
         &self,
@@ -2747,6 +2917,7 @@ impl ServerHandler for PokerVectorMcp {
                  get_squeeze_spots for squeeze-eligible preflop situations, \
                  get_villain_profile for comprehensive single-villain reports, \
                  get_positional_matchups for hero vs villain by position, \
+                 get_trends for stats over time (by day/week/month), \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),
@@ -2760,6 +2931,35 @@ fn mcp_error(msg: &str) -> ErrorData {
         message: msg.to_string().into(),
         data: None,
     }
+}
+
+/// Days since an arbitrary epoch (2000-01-03, a Monday) for week alignment.
+fn days_from_ymd(y: i32, m: u32, d: u32) -> i64 {
+    // Algorithm from http://howardhinnant.github.io/date_algorithms.html
+    let y = if m <= 2 { y as i64 - 1 } else { y as i64 };
+    let era = y.div_euclid(400);
+    let yoe = y.rem_euclid(400) as u64;
+    let m = m as u64;
+    let d = d as u64;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days_abs = era * 146097 + doe as i64 - 719468; // days since 1970-01-01
+    days_abs - 10957 // offset to 2000-01-03 (Monday)
+}
+
+fn ymd_from_days(days: i64) -> (i32, u32, u32) {
+    let days_abs = days + 10957; // back to 1970-01-01 epoch
+    let z = days_abs + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z.rem_euclid(146097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y as i32, m as u32, d as u32)
 }
 
 fn rank_order(rank: Rank) -> u8 {

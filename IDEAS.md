@@ -11,7 +11,7 @@ Takes two player names (or hero vs. a villain) and returns a side-by-side stat c
 ### `get_range_analysis`
 Given filters (position, pot type, action taken), return the distribution of starting hands the hero/villain played. E.g. "what hands does PolarFox open from the CO?" Returns a frequency table grouped by hand category (pocket pairs, suited broadways, etc.).
 
-### `get_trends`
+### ~~`get_trends`~~ ✅
 Winrate/stats over time (e.g. by week or by session). Lets the LLM answer "am I improving?" or "how has my 3-bet% changed over the last month?"
 
 ### `find_leaks`
