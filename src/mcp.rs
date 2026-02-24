@@ -106,6 +106,36 @@ pub struct ListVillainsParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TableProfitabilityParams {
+    #[schemars(description = "Group by 'stakes' (default) or 'table'")]
+    pub group_by: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Minimum hands per group to include in results (default 1)")]
+    pub min_hands: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct BestVillainsParams {
+    #[schemars(description = "Minimum hands played against villain (default 10)")]
+    pub min_hands: Option<u64>,
+    #[schemars(description = "Max results to return (default 10)")]
+    pub limit: Option<u64>,
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct WorstVillainsParams {
+    #[schemars(description = "Minimum hands played against villain (default 10)")]
+    pub min_hands: Option<u64>,
+    #[schemars(description = "Max results to return (default 10)")]
+    pub limit: Option<u64>,
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ListSessionsParams {
     #[schemars(description = "Max sessions to return (default 20, most recent first)")]
     pub limit: Option<u32>,
@@ -365,6 +395,138 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Show profitability grouped by stakes or table. Returns hands played, net profit, and bb/100 for each group.")]
+    async fn get_table_profitability(
+        &self,
+        Parameters(params): Parameters<TableProfitabilityParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let group_by_table = params.group_by.as_deref() == Some("table");
+        let min_hands = params.min_hands.unwrap_or(1);
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: None,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        // Group hands
+        let mut groups: std::collections::HashMap<String, Vec<&crate::types::Hand>> =
+            std::collections::HashMap::new();
+        for hand in &hands {
+            let key = if group_by_table {
+                hand.table_name.clone()
+            } else {
+                hand.game_type.to_string()
+            };
+            groups.entry(key).or_default().push(hand);
+        }
+
+        let hero = &self.hero;
+        let mut results: Vec<serde_json::Value> = groups
+            .into_iter()
+            .filter(|(_, h)| h.len() as u64 >= min_hands)
+            .map(|(key, group_hands)| {
+                let count = group_hands.len() as u64;
+                let mut net_profit = 0.0f64;
+                let mut net_profit_bb = 0.0f64;
+                for hand in &group_hands {
+                    let profit =
+                        stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+                    net_profit += profit;
+                    let bb = stats::big_blind_size(hand);
+                    if bb > 0.0 {
+                        net_profit_bb += profit / bb;
+                    }
+                }
+                let bb_per_100 = if count > 0 {
+                    net_profit_bb / count as f64 * 100.0
+                } else {
+                    0.0
+                };
+                serde_json::json!({
+                    "group": key,
+                    "hands": count,
+                    "net_profit": format!("{:.2}", net_profit),
+                    "net_profit_bb": format!("{:.1}", net_profit_bb),
+                    "bb_per_100": format!("{:.1}", bb_per_100),
+                })
+            })
+            .collect();
+
+        results.sort_by(|a, b| {
+            let pa: f64 = a["net_profit"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
+            let pb: f64 = b["net_profit"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
+            pb.partial_cmp(&pa).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let json = serde_json::to_string_pretty(&results)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "List villains hero profits the most against. Returns opponents sorted by hero's net profit descending.")]
+    async fn get_best_villains(
+        &self,
+        Parameters(params): Parameters<BestVillainsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+        let min_hands = params.min_hands.unwrap_or(10);
+        let limit = params.limit.unwrap_or(10) as usize;
+
+        let hands = self
+            .store
+            .scroll_hands(None)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let villains = stats::list_villains(&hands, hero, min_hands);
+        // Already sorted by net_profit descending
+        let best: Vec<_> = villains.into_iter().take(limit).collect();
+
+        let json = serde_json::to_string_pretty(&best)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "List villains hero loses the most against. Returns opponents sorted by hero's net profit ascending (biggest losers first).")]
+    async fn get_worst_villains(
+        &self,
+        Parameters(params): Parameters<WorstVillainsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+        let min_hands = params.min_hands.unwrap_or(10);
+        let limit = params.limit.unwrap_or(10) as usize;
+
+        let hands = self
+            .store
+            .scroll_hands(None)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let mut villains = stats::list_villains(&hands, hero, min_hands);
+        villains.reverse(); // Now ascending by net_profit (worst first)
+        let worst: Vec<_> = villains.into_iter().take(limit).collect();
+
+        let json = serde_json::to_string_pretty(&worst)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Find hands with similar betting structure or narrative to a given hand ID. Default mode is 'action' (betting pattern similarity).")]
     async fn search_similar_hands(
         &self,
@@ -411,7 +573,10 @@ impl ServerHandler for PokerVectorMcp {
                  get_hand for full hand details, get_stats for aggregate statistics, \
                  list_villains for opponent summaries, list_sessions to see cash game sessions, \
                  review_session for detailed session analysis, \
-                 and search_similar_hands to find structurally similar hands by ID."
+                 search_similar_hands to find structurally similar hands by ID, \
+                 get_table_profitability to see profit by stakes or table, \
+                 get_best_villains for most profitable opponents, \
+                 and get_worst_villains for least profitable opponents."
                     .to_string(),
             ),
         }

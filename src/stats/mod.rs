@@ -11,6 +11,7 @@ mod villains;
 mod test_helpers;
 
 pub use calculate::calculate_stats;
+pub(crate) use helpers::{big_blind_size, hero_collected, hero_invested};
 pub use villains::list_villains;
 
 use crate::types::*;
