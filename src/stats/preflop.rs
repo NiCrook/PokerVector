@@ -102,6 +102,109 @@ pub(crate) fn fold_to_three_bet_analysis(hand: &Hand, hero: &str) -> (bool, bool
     (hero_faced_3bet, false)
 }
 
+/// 4-bet: player opened, faced a 3-bet, and re-raised (4-bet).
+/// Returns (had_opportunity, did_four_bet).
+/// Opportunity exists when player's open raise gets 3-bet back at them.
+pub(crate) fn four_bet_analysis(hand: &Hand, player: &str) -> (bool, bool) {
+    let mut raise_count = 0u32;
+    let mut player_opened = false;
+
+    for action in &hand.actions {
+        if action.street != Street::Preflop {
+            continue;
+        }
+        match &action.action_type {
+            ActionType::Raise { .. } | ActionType::Bet { .. } => {
+                if action.player == player {
+                    if !player_opened {
+                        // Player's open raise (or first raise)
+                        player_opened = true;
+                        raise_count += 1;
+                    } else if raise_count == 2 {
+                        // Player is 4-betting (facing a 3-bet after opening)
+                        return (true, true);
+                    } else {
+                        return (false, false);
+                    }
+                } else {
+                    raise_count += 1;
+                    if player_opened && raise_count == 2 {
+                        // Someone 3-bet the player's open — opportunity exists
+                        // Continue to see player's response
+                    }
+                }
+            }
+            ActionType::Fold | ActionType::Call { .. } if action.player == player => {
+                if player_opened && raise_count == 2 {
+                    // Player faced 3-bet and folded/called instead of 4-betting
+                    return (true, false);
+                }
+                return (false, false);
+            }
+            _ => {}
+        }
+    }
+
+    if player_opened && raise_count == 2 {
+        (true, false)
+    } else {
+        (false, false)
+    }
+}
+
+/// Fold to 4-bet: player 3-bet and faces a 4-bet, did they fold?
+/// Returns (had_opportunity, did_fold).
+pub(crate) fn fold_to_four_bet_analysis(hand: &Hand, player: &str) -> (bool, bool) {
+    let mut raise_count = 0u32;
+    let mut player_three_bet = false;
+
+    for action in &hand.actions {
+        if action.street != Street::Preflop {
+            continue;
+        }
+        match &action.action_type {
+            ActionType::Raise { .. } | ActionType::Bet { .. } => {
+                if action.player == player {
+                    if raise_count == 1 {
+                        // Player is 3-betting
+                        player_three_bet = true;
+                        raise_count += 1;
+                    } else if player_three_bet && raise_count == 3 {
+                        // Player 5-bet (didn't fold to 4-bet)
+                        return (true, false);
+                    } else {
+                        raise_count += 1;
+                    }
+                } else {
+                    raise_count += 1;
+                    if player_three_bet && raise_count == 3 {
+                        // Someone 4-bet the player's 3-bet — opportunity
+                    }
+                }
+            }
+            ActionType::Fold if action.player == player => {
+                if player_three_bet && raise_count == 3 {
+                    return (true, true);
+                }
+                return (false, false);
+            }
+            ActionType::Call { .. } if action.player == player => {
+                if player_three_bet && raise_count == 3 {
+                    return (true, false);
+                }
+                return (false, false);
+            }
+            _ => {}
+        }
+    }
+
+    if player_three_bet && raise_count == 3 {
+        (true, false)
+    } else {
+        (false, false)
+    }
+}
+
 /// Squeeze: 3-bet preflop when there's been a raise AND one or more callers.
 /// Returns (had_opportunity, did_squeeze).
 pub(crate) fn squeeze_analysis(hand: &Hand, player: &str) -> (bool, bool) {
@@ -224,6 +327,65 @@ mod tests {
 
         let stats = calculate_stats(&[h1], "Hero");
         assert!((stats.fold_to_three_bet - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_four_bet() {
+        // Hero opens, Villain 3-bets, Hero 4-bets
+        let mut hand = base_hand();
+        hand.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.18), to: make_money(0.50), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        ];
+        hand.result = HandResult { winners: vec![Winner { player: "Hero".to_string(), amount: make_money(0.21), pot: "Main pot".to_string() }], hero_result: HeroResult::Won };
+
+        let stats = calculate_stats(&[hand], "Hero");
+        assert!((stats.four_bet_pct - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_four_bet_no_opportunity() {
+        // Hero opens, Villain calls (no 3-bet, so no 4-bet opportunity)
+        let mut hand = base_hand();
+        hand.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: make_money(0.05), all_in: false }, street: Street::Preflop },
+        ];
+
+        let stats = calculate_stats(&[hand], "Hero");
+        assert!((stats.four_bet_pct - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_fold_to_four_bet() {
+        // Villain opens, Hero 3-bets, Villain 4-bets, Hero folds
+        let mut hand = base_hand();
+        hand.actions = vec![
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.18), to: make_money(0.50), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        ];
+
+        let stats = calculate_stats(&[hand], "Hero");
+        assert!((stats.fold_to_four_bet - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_fold_to_four_bet_calls() {
+        // Villain opens, Hero 3-bets, Villain 4-bets, Hero calls (doesn't fold)
+        let mut hand = base_hand();
+        hand.actions = vec![
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.18), to: make_money(0.50), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(0.32), all_in: false }, street: Street::Preflop },
+        ];
+
+        let stats = calculate_stats(&[hand], "Hero");
+        assert!((stats.fold_to_four_bet - 0.0).abs() < 0.01);
     }
 
     #[test]

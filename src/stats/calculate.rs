@@ -65,8 +65,20 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
     let mut wwsf_count = 0u64;
     let mut overbet_total = 0u64;
     let mut overbet_count = 0u64;
+    let mut four_bet_opp = 0u64;
+    let mut four_bet_count = 0u64;
+    let mut fold_to_4bet_opp = 0u64;
+    let mut fold_to_4bet_count = 0u64;
+    let mut cbet_river_opp = 0u64;
+    let mut cbet_river_count = 0u64;
+    let mut fold_to_cbet_river_opp = 0u64;
+    let mut fold_to_cbet_river_count = 0u64;
+    let mut total_pot = 0.0f64;
+    let mut showdown_winnings = 0.0f64;
+    let mut non_showdown_winnings = 0.0f64;
 
-    let mut position_data: HashMap<String, (u64, u64, u64)> = HashMap::new(); // (hands, vpip, pfr)
+    // (hands, vpip, pfr, 3bet_opp, 3bet_count, cbet_flop_opp, cbet_flop_count, net_won, total_bb)
+    let mut position_data: HashMap<String, (u64, u64, u64, u64, u64, u64, u64, f64, f64)> = HashMap::new();
 
     for hand in hands {
         let is_hero_in_hand = hand.players.iter().any(|p| p.name == hero && !p.is_sitting_out);
@@ -83,7 +95,7 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
             .map(|p| p.to_string())
             .unwrap_or_else(|| "Unknown".to_string());
 
-        let entry = position_data.entry(pos_key).or_insert((0, 0, 0));
+        let entry = position_data.entry(pos_key).or_insert((0, 0, 0, 0, 0, 0, 0, 0.0, 0.0));
         entry.0 += 1;
 
         // Preflop analysis
@@ -104,6 +116,8 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
             if did_three_bet {
                 three_bet_count += 1;
             }
+            entry.3 += 1;
+            if did_three_bet { entry.4 += 1; }
         }
 
         // Fold-to-3bet analysis
@@ -115,12 +129,27 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
             }
         }
 
+        // 4-bet analysis
+        let (fb_opp, fb_did) = four_bet_analysis(hand, hero);
+        if fb_opp { four_bet_opp += 1; if fb_did { four_bet_count += 1; } }
+
+        // Fold-to-4bet analysis
+        let (ft4b_opp, ft4b_did) = fold_to_four_bet_analysis(hand, hero);
+        if ft4b_opp { fold_to_4bet_opp += 1; if ft4b_did { fold_to_4bet_count += 1; } }
+
         // C-bet analysis
         let cbet = cbet_analysis(hand, hero);
-        if cbet.flop.0 { cbet_flop_opp += 1; if cbet.flop.1 { cbet_flop_count += 1; } }
+        if cbet.flop.0 {
+            cbet_flop_opp += 1;
+            if cbet.flop.1 { cbet_flop_count += 1; }
+            entry.5 += 1;
+            if cbet.flop.1 { entry.6 += 1; }
+        }
         if cbet.turn.0 { cbet_turn_opp += 1; if cbet.turn.1 { cbet_turn_count += 1; } }
+        if cbet.river.0 { cbet_river_opp += 1; if cbet.river.1 { cbet_river_count += 1; } }
         if cbet.fold_to_flop.0 { fold_to_cbet_flop_opp += 1; if cbet.fold_to_flop.1 { fold_to_cbet_flop_count += 1; } }
         if cbet.fold_to_turn.0 { fold_to_cbet_turn_opp += 1; if cbet.fold_to_turn.1 { fold_to_cbet_turn_count += 1; } }
+        if cbet.fold_to_river.0 { fold_to_cbet_river_opp += 1; if cbet.fold_to_river.1 { fold_to_cbet_river_count += 1; } }
 
         // Steal analysis
         let steal = steal_analysis(hand, hero);
@@ -203,21 +232,42 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
             }
         }
 
+        // Pot size tracking
+        if let Some(ref pot) = hand.pot {
+            total_pot += pot.amount;
+        }
+
         // Win rate calculation
         let invested = hero_invested(hand, hero);
         let collected = hero_collected(hand, hero);
-        net_won += collected - invested;
+        let hand_profit = collected - invested;
+        net_won += hand_profit;
         total_bb += bb_size;
+
+        // Showdown vs non-showdown winnings
+        if hero_at_showdown {
+            showdown_winnings += hand_profit;
+        } else {
+            non_showdown_winnings += hand_profit;
+        }
+
+        // Positional net won tracking
+        entry.7 += hand_profit;
+        entry.8 += bb_size;
     }
 
     let positions = if position_data.is_empty() {
         None
     } else {
-        Some(position_data.into_iter().map(|(pos, (h, v, p))| {
+        Some(position_data.into_iter().map(|(pos, (h, v, p, tb_opp, tb_cnt, cb_opp, cb_cnt, nw, tbb))| {
+            let avg_bb = if h > 0 { tbb / h as f64 } else { 1.0 };
             (pos, PositionStats {
                 hands: h,
                 vpip: if h > 0 { v as f64 / h as f64 * 100.0 } else { 0.0 },
                 pfr: if h > 0 { p as f64 / h as f64 * 100.0 } else { 0.0 },
+                three_bet_pct: if tb_opp > 0 { tb_cnt as f64 / tb_opp as f64 * 100.0 } else { 0.0 },
+                cbet_flop: if cb_opp > 0 { cb_cnt as f64 / cb_opp as f64 * 100.0 } else { 0.0 },
+                winrate_bb100: if h > 0 && avg_bb > 0.0 { (nw / avg_bb) / h as f64 * 100.0 } else { 0.0 },
             })
         }).collect())
     };
@@ -232,14 +282,18 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
         pfr: pct(pfr_count, hands_dealt),
         three_bet_pct: pct(three_bet_count, three_bet_opportunities),
         fold_to_three_bet: pct(fold_to_3bet_count, fold_to_3bet_opportunities),
+        four_bet_pct: pct(four_bet_count, four_bet_opp),
+        fold_to_four_bet: pct(fold_to_4bet_count, fold_to_4bet_opp),
         aggression_factor: if postflop_calls > 0 { postflop_bets_raises as f64 / postflop_calls as f64 } else if postflop_bets_raises > 0 { f64::INFINITY } else { 0.0 },
         winrate_bb100: if hands_dealt > 0 && total_bb > 0.0 { (net_won / (total_bb / hands_dealt as f64)) / hands_dealt as f64 * 100.0 } else { 0.0 },
         went_to_showdown_pct: pct(went_to_showdown_count, saw_flop_count),
         won_at_showdown_pct: pct(won_at_showdown_count, went_to_showdown_count),
         cbet_flop: pct(cbet_flop_count, cbet_flop_opp),
         cbet_turn: pct(cbet_turn_count, cbet_turn_opp),
+        cbet_river: pct(cbet_river_count, cbet_river_opp),
         fold_to_cbet_flop: pct(fold_to_cbet_flop_count, fold_to_cbet_flop_opp),
         fold_to_cbet_turn: pct(fold_to_cbet_turn_count, fold_to_cbet_turn_opp),
+        fold_to_cbet_river: pct(fold_to_cbet_river_count, fold_to_cbet_river_opp),
         steal_pct: pct(steal_count, steal_opp),
         fold_to_steal_bb: pct(fold_to_steal_bb_count, fold_to_steal_bb_opp),
         fold_to_steal_sb: pct(fold_to_steal_sb_count, fold_to_steal_sb_opp),
@@ -255,6 +309,10 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
         cold_call_pct: pct(cold_call_count, cold_call_opp),
         wwsf: pct(wwsf_count, wwsf_opp),
         overbet_pct: pct(overbet_count, overbet_total),
+        flop_seen_pct: pct(saw_flop_count, hands_dealt),
+        avg_pot_size: if hands_dealt > 0 { total_pot / hands_dealt as f64 } else { 0.0 },
+        showdown_winnings,
+        non_showdown_winnings,
         positions,
     }
 }
@@ -354,6 +412,92 @@ mod tests {
 
         let stats = calculate_stats(&[hand], "Hero");
         assert_eq!(stats.hands_played, 0);
+    }
+
+    #[test]
+    fn test_flop_seen_pct() {
+        // Hand 1: Hero sees flop
+        let mut h1 = base_hand();
+        h1.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: make_money(0.05), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Bet { amount: make_money(0.08), all_in: false }, street: Street::Flop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Flop },
+        ];
+        h1.board = vec![make_card('T', 'h'), make_card('5', 'd'), make_card('2', 'c')];
+        h1.result = HandResult {
+            winners: vec![Winner { player: "Hero".to_string(), amount: make_money(0.12), pot: "Main pot".to_string() }],
+            hero_result: HeroResult::Won,
+        };
+
+        // Hand 2: Hero folds preflop
+        let mut h2 = base_hand();
+        h2.id = 2;
+        h2.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        ];
+
+        let stats = calculate_stats(&[h1, h2], "Hero");
+        assert!((stats.flop_seen_pct - 50.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_avg_pot_size() {
+        let mut h1 = base_hand();
+        h1.pot = Some(make_money(1.00));
+        h1.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        ];
+
+        let mut h2 = base_hand();
+        h2.id = 2;
+        h2.pot = Some(make_money(3.00));
+        h2.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        ];
+
+        let stats = calculate_stats(&[h1, h2], "Hero");
+        assert!((stats.avg_pot_size - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_showdown_vs_non_showdown_winnings() {
+        // Hand 1: Goes to showdown, hero wins
+        let mut h1 = base_hand();
+        h1.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(0.02), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(0.04), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Check, street: Street::Flop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Check, street: Street::Flop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Shows { cards: vec![], description: None }, street: Street::Showdown },
+        ];
+        h1.board = vec![make_card('T', 'h'), make_card('5', 'd'), make_card('2', 'c')];
+        h1.result = HandResult {
+            winners: vec![Winner { player: "Hero".to_string(), amount: make_money(0.12), pot: "Main pot".to_string() }],
+            hero_result: HeroResult::Won,
+        };
+        // invested: 0.02 + 0.04 = 0.06, collected: 0.12, profit = +0.06
+
+        // Hand 2: No showdown, hero wins (villain folds flop)
+        let mut h2 = base_hand();
+        h2.id = 2;
+        h2.actions = vec![
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: make_money(0.05), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Bet { amount: make_money(0.08), all_in: false }, street: Street::Flop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Flop },
+        ];
+        h2.board = vec![make_card('T', 'h'), make_card('5', 'd'), make_card('2', 'c')];
+        h2.result = HandResult {
+            winners: vec![Winner { player: "Hero".to_string(), amount: make_money(0.20), pot: "Main pot".to_string() }],
+            hero_result: HeroResult::Won,
+        };
+        // invested: 0.06 + 0.08 = 0.14, collected: 0.20, profit = +0.06
+
+        let stats = calculate_stats(&[h1, h2], "Hero");
+        assert!((stats.showdown_winnings - 0.06).abs() < 0.01);
+        assert!((stats.non_showdown_winnings - 0.06).abs() < 0.01);
     }
 
     #[test]

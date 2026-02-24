@@ -27,14 +27,18 @@ mod types {
         pub pfr: f64,
         pub three_bet_pct: f64,
         pub fold_to_three_bet: f64,
+        pub four_bet_pct: f64,
+        pub fold_to_four_bet: f64,
         pub aggression_factor: f64,
         pub winrate_bb100: f64,
         pub went_to_showdown_pct: f64,
         pub won_at_showdown_pct: f64,
         pub cbet_flop: f64,
         pub cbet_turn: f64,
+        pub cbet_river: f64,
         pub fold_to_cbet_flop: f64,
         pub fold_to_cbet_turn: f64,
+        pub fold_to_cbet_river: f64,
         pub steal_pct: f64,
         pub fold_to_steal_bb: f64,
         pub fold_to_steal_sb: f64,
@@ -50,6 +54,10 @@ mod types {
         pub cold_call_pct: f64,
         pub wwsf: f64,
         pub overbet_pct: f64,
+        pub flop_seen_pct: f64,
+        pub avg_pot_size: f64,
+        pub showdown_winnings: f64,
+        pub non_showdown_winnings: f64,
         pub positions: Option<HashMap<String, PositionStats>>,
     }
 
@@ -58,6 +66,9 @@ mod types {
         pub hands: u64,
         pub vpip: f64,
         pub pfr: f64,
+        pub three_bet_pct: f64,
+        pub cbet_flop: f64,
+        pub winrate_bb100: f64,
     }
 
     #[derive(Debug, Clone, serde::Serialize)]
