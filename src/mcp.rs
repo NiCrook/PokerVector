@@ -428,6 +428,20 @@ pub struct FindLeaksParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct DetectTiltParams {
+    #[schemars(description = "Minimum deviation from baseline to flag (percentage points, default 10). Lower values catch more subtle tilt.")]
+    pub threshold: Option<f64>,
+    #[schemars(description = "Minimum hands per session to analyze (default 20). Sessions with fewer hands are skipped.")]
+    pub min_hands: Option<u64>,
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetTrendsParams {
     #[schemars(description = "Time bucket size: 'day', 'week' (default), or 'month'")]
     pub period: Option<String>,
@@ -2844,6 +2858,185 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Detect sessions where hero's play deviated significantly from their baseline. Flags potential tilt — VPIP spikes, aggression changes, or unusual loss patterns after big hands. Compares per-session stats against overall averages.")]
+    async fn detect_tilt(
+        &self,
+        Parameters(params): Parameters<DetectTiltParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+        let threshold = params.threshold.unwrap_or(10.0);
+        let min_hands = params.min_hands.unwrap_or(20) as usize;
+
+        // Build filter for scrolling
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        if hands.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "tilt_sessions": [],
+                    "total_sessions": 0,
+                    "message": "No hands found.",
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        // Compute overall baseline stats
+        let baseline = stats::calculate_stats(&hands, hero);
+
+        // Detect sessions
+        let all_sessions = sessions::detect_sessions(hands, hero);
+        if all_sessions.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "tilt_sessions": [],
+                    "total_sessions": 0,
+                    "message": "No cash game sessions detected.",
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        // Analyze each session for deviations
+        let mut tilt_sessions: Vec<serde_json::Value> = Vec::new();
+
+        for session in &all_sessions {
+            if session.total_hands < min_hands {
+                continue;
+            }
+
+            // Collect session hands
+            let session_hands: Vec<crate::types::Hand> = session
+                .tables
+                .iter()
+                .flat_map(|t| t.hands.iter().cloned())
+                .collect();
+
+            let session_stats = stats::calculate_stats(&session_hands, hero);
+
+            // Check for deviations
+            let checks: Vec<(&str, f64, f64, &str)> = vec![
+                ("vpip", session_stats.vpip, baseline.vpip, "VPIP spike suggests playing too many hands — possible frustration-driven looseness"),
+                ("pfr", session_stats.pfr, baseline.pfr, "PFR deviation — raising pattern changed significantly from baseline"),
+                ("three_bet_pct", session_stats.three_bet_pct, baseline.three_bet_pct, "3-bet frequency changed — may indicate revenge-raising or over-tightening"),
+                ("aggression_factor", session_stats.aggression_factor, baseline.aggression_factor, "Aggression factor shift — possible switch to overly aggressive or overly passive play"),
+                ("went_to_showdown_pct", session_stats.went_to_showdown_pct, baseline.went_to_showdown_pct, "Showdown frequency changed — calling down too light (tilt) or folding too much (scared)"),
+                ("cbet_flop", session_stats.cbet_flop, baseline.cbet_flop, "C-bet frequency shifted — autopilot betting or giving up too easily"),
+                ("wwsf", session_stats.wwsf, baseline.wwsf, "WWSF changed — fighting for pots differently than usual"),
+                ("fold_to_cbet_flop", session_stats.fold_to_cbet_flop, baseline.fold_to_cbet_flop, "Fold-to-cbet changed — stubbornly calling or over-folding"),
+            ];
+
+            let mut deviations: Vec<serde_json::Value> = Vec::new();
+            for (stat_name, session_val, baseline_val, explanation) in &checks {
+                // Skip if baseline is 0 (no opportunity) or inf
+                if !baseline_val.is_finite() || !session_val.is_finite() {
+                    continue;
+                }
+                let diff = session_val - baseline_val;
+                if diff.abs() >= threshold {
+                    let direction = if diff > 0.0 { "higher" } else { "lower" };
+                    deviations.push(serde_json::json!({
+                        "stat": stat_name,
+                        "session_value": format!("{:.1}", session_val),
+                        "baseline_value": format!("{:.1}", baseline_val),
+                        "deviation": format!("{:+.1}", diff),
+                        "direction": direction,
+                        "explanation": explanation,
+                    }));
+                }
+            }
+
+            // Also check for a big loss streak within the session
+            // Find the worst consecutive run of losses
+            let mut worst_streak = 0i32;
+            let mut current_streak = 0i32;
+            for hand in &session_hands {
+                let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+                if profit < 0.0 {
+                    current_streak += 1;
+                    worst_streak = worst_streak.max(current_streak);
+                } else {
+                    current_streak = 0;
+                }
+            }
+
+            if !deviations.is_empty() || worst_streak >= 8 {
+                let mut entry = serde_json::json!({
+                    "session_id": session.session_id,
+                    "start_time": session.start_time,
+                    "end_time": session.end_time,
+                    "duration_minutes": session.duration_minutes,
+                    "hands": session.total_hands,
+                    "net_profit": format!("{:.2}", session.net_profit),
+                    "net_profit_bb": format!("{:.1}", session.net_profit_bb),
+                    "winrate_bb100": format!("{:.1}", session_stats.winrate_bb100),
+                    "deviations": deviations,
+                });
+
+                if worst_streak >= 5 {
+                    entry.as_object_mut().unwrap().insert(
+                        "worst_loss_streak".to_string(),
+                        serde_json::json!(worst_streak),
+                    );
+                }
+
+                tilt_sessions.push(entry);
+            }
+        }
+
+        // Sort by number of deviations descending (most tilted first)
+        tilt_sessions.sort_by(|a, b| {
+            let da = a["deviations"].as_array().map(|v| v.len()).unwrap_or(0);
+            let db = b["deviations"].as_array().map(|v| v.len()).unwrap_or(0);
+            db.cmp(&da)
+        });
+
+        let response = serde_json::json!({
+            "threshold_pct_points": threshold,
+            "min_hands_per_session": min_hands,
+            "total_sessions_analyzed": all_sessions.iter().filter(|s| s.total_hands >= min_hands).count(),
+            "tilt_sessions_found": tilt_sessions.len(),
+            "baseline_stats": {
+                "total_hands": baseline.hands_played,
+                "vpip": format!("{:.1}", baseline.vpip),
+                "pfr": format!("{:.1}", baseline.pfr),
+                "three_bet_pct": format!("{:.1}", baseline.three_bet_pct),
+                "aggression_factor": format!("{:.2}", baseline.aggression_factor),
+                "went_to_showdown_pct": format!("{:.1}", baseline.went_to_showdown_pct),
+                "cbet_flop": format!("{:.1}", baseline.cbet_flop),
+                "wwsf": format!("{:.1}", baseline.wwsf),
+                "fold_to_cbet_flop": format!("{:.1}", baseline.fold_to_cbet_flop),
+            },
+            "tilt_sessions": tilt_sessions,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Show how hero's stats change over time. Buckets hands by day, week, or month and computes key stats (VPIP, PFR, winrate, hands played, etc.) for each period. Useful for answering 'am I improving?' or 'how has my 3-bet% changed?'")]
     async fn get_trends(
         &self,
@@ -3117,6 +3310,7 @@ impl ServerHandler for PokerVectorMcp {
                  get_positional_matchups for hero vs villain by position, \
                  get_trends for stats over time (by day/week/month), \
                  find_leaks for automated leak detection against baseline ranges, \
+                 detect_tilt to find sessions where play deviated from baseline, \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),

@@ -65,7 +65,7 @@ Analyze bet sizing patterns for a player. "Villain bets 1/3 pot with draws and 2
 ### `get_runout_analysis`
 Given a set of hands (by filter), show how often hero wins on different board textures (monotone, paired, connected, etc.).
 
-### `detect_tilt`
+### ~~`detect_tilt`~~ ✅
 Flag sessions or stretches where hero's play deviated from their baseline (VPIP spike, unusual aggression, etc.) after big losses.
 
 ## Quality of Life
