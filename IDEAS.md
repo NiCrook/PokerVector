@@ -14,7 +14,7 @@ Given filters (position, pot type, action taken), return the distribution of sta
 ### ~~`get_trends`~~ ✅
 Winrate/stats over time (e.g. by week or by session). Lets the LLM answer "am I improving?" or "how has my 3-bet% changed over the last month?"
 
-### `find_leaks`
+### ~~`find_leaks`~~ ✅
 Automated leak detection. Compare hero's stats against baseline ranges (e.g. VPIP 22-28% for 6max is healthy, >35% is too loose). Return a list of potential leaks with the hands that demonstrate them.
 
 ### ~~`get_showdown_hands`~~ ✅
