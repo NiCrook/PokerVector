@@ -67,6 +67,12 @@ pub struct SearchHandsParams {
     pub betting_limit: Option<String>,
     #[schemars(description = "Max results to return (default 10)")]
     pub limit: Option<u64>,
+    #[schemars(description = "Offset for pagination (default 0). Use with limit to page through results.")]
+    pub offset: Option<u64>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15' or '2024-01-15 00:00:00')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15' or '2024-02-15 23:59:59')")]
+    pub to_date: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -103,6 +109,10 @@ pub struct GetStatsParams {
     pub variant: Option<String>,
     #[schemars(description = "Filter by betting limit: no_limit, pot_limit, fixed_limit")]
     pub betting_limit: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -111,6 +121,10 @@ pub struct ListVillainsParams {
     pub min_hands: Option<u64>,
     #[schemars(description = "Hero name override (defaults to configured hero)")]
     pub hero: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -419,6 +433,9 @@ impl PokerVectorMcp {
             variant: params.variant,
             betting_limit: params.betting_limit,
             limit: params.limit,
+            offset: params.offset,
+            from_date: params.from_date,
+            to_date: params.to_date,
         };
         let results = search::search_hands(&self.store, &mut *embedder, search_params)
             .await
@@ -464,13 +481,16 @@ impl PokerVectorMcp {
             mode: search::SearchMode::default(),
             position: params.position,
             pot_type: params.pot_type,
-            villain: params.villain,
+            villain: params.villain.clone(),
             stakes: params.stakes,
             result: None,
             game_type: params.game_type,
             variant: params.variant,
             betting_limit: params.betting_limit,
             limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -481,7 +501,41 @@ impl PokerVectorMcp {
             .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
 
         let player_stats = stats::calculate_stats(&hands, hero);
-        let json = serde_json::to_string_pretty(&player_stats)
+
+        // If villain filter was used, add positional breakdown for the matchup
+        let response = if let Some(ref villain) = params.villain {
+            let mut pos_data: HashMap<String, (u64, f64)> = HashMap::new();
+            for hand in &hands {
+                let pos = hand.hero_position.map(|p| p.to_string()).unwrap_or_else(|| "?".to_string());
+                let bb = stats::big_blind_size(hand);
+                let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+                let profit_bb = if bb > 0.0 { profit / bb } else { 0.0 };
+                let entry = pos_data.entry(pos).or_insert((0, 0.0));
+                entry.0 += 1;
+                entry.1 += profit_bb;
+            }
+            let positional: Vec<serde_json::Value> = pos_data.iter().map(|(pos, (count, pbb))| {
+                serde_json::json!({
+                    "position": pos,
+                    "hands": count,
+                    "hero_profit_bb": format!("{:.1}", pbb),
+                    "hero_bb_per_100": format!("{:.1}", if *count > 0 { pbb / *count as f64 * 100.0 } else { 0.0 }),
+                })
+            }).collect();
+
+            serde_json::json!({
+                "stats": player_stats,
+                "villain_matchup": {
+                    "villain": villain,
+                    "positional_breakdown": positional,
+                },
+            })
+        } else {
+            serde_json::to_value(&player_stats)
+                .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?
+        };
+
+        let json = serde_json::to_string_pretty(&response)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
@@ -494,9 +548,32 @@ impl PokerVectorMcp {
         let hero = params.hero.as_deref().unwrap_or(&self.hero);
         let min_hands = params.min_hands.unwrap_or(10);
 
+        // Build date filter if provided
+        let filter = if params.from_date.is_some() || params.to_date.is_some() {
+            let filter_params = SearchParams {
+                query: String::new(),
+                mode: search::SearchMode::default(),
+                position: None,
+                pot_type: None,
+                villain: None,
+                stakes: None,
+                result: None,
+                game_type: None,
+                variant: None,
+                betting_limit: None,
+                limit: None,
+                offset: None,
+                from_date: params.from_date,
+                to_date: params.to_date,
+            };
+            search::build_filter(&filter_params)
+        } else {
+            None
+        };
+
         let hands = self
             .store
-            .scroll_hands(None)
+            .scroll_hands(filter)
             .await
             .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
 
@@ -526,6 +603,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -580,6 +660,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -661,6 +744,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -909,6 +995,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -1028,6 +1117,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -1097,6 +1189,9 @@ impl PokerVectorMcp {
             variant: params.variant,
             betting_limit: params.betting_limit,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -1325,6 +1420,9 @@ impl PokerVectorMcp {
                 variant: None,
                 betting_limit: None,
                 limit: None,
+                offset: None,
+                from_date: None,
+                to_date: None,
             };
             let filter = search::build_filter(&filter_params);
             let hands = self
@@ -1544,6 +1642,9 @@ impl PokerVectorMcp {
             variant: Some("holdem".to_string()),
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -1781,6 +1882,9 @@ impl PokerVectorMcp {
             variant: params.variant,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -1820,6 +1924,9 @@ impl PokerVectorMcp {
             variant: params.variant,
             betting_limit: params.betting_limit,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -1855,6 +1962,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -2036,6 +2146,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -2127,6 +2240,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -2180,6 +2296,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -2246,6 +2365,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -2347,6 +2469,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -2440,6 +2565,9 @@ impl PokerVectorMcp {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = search::build_filter(&filter_params);
 

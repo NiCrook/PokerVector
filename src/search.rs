@@ -22,6 +22,9 @@ pub struct SearchParams {
     pub variant: Option<String>,
     pub betting_limit: Option<String>,
     pub limit: Option<u64>,
+    pub offset: Option<u64>,
+    pub from_date: Option<String>,
+    pub to_date: Option<String>,
 }
 
 fn sanitize(value: &str) -> String {
@@ -56,6 +59,12 @@ pub fn build_filter(params: &SearchParams) -> Option<String> {
     if let Some(ref bl) = params.betting_limit {
         conditions.push(format!("betting_limit = '{}'", sanitize(bl)));
     }
+    if let Some(ref from) = params.from_date {
+        conditions.push(format!("timestamp >= '{}'", sanitize(from)));
+    }
+    if let Some(ref to) = params.to_date {
+        conditions.push(format!("timestamp <= '{}'", sanitize(to)));
+    }
 
     if conditions.is_empty() {
         None
@@ -71,6 +80,7 @@ pub async fn search_hands(
     params: SearchParams,
 ) -> Result<Vec<SearchResult>> {
     let limit = params.limit.unwrap_or(10);
+    let offset = params.offset.unwrap_or(0);
     let filter = build_filter(&params);
 
     let vector_name = match params.mode {
@@ -82,10 +92,18 @@ pub async fn search_hands(
         .embed(&params.query)
         .context("Failed to embed search query")?;
 
-    let results = store
-        .search(vector_name, query_embedding, limit, filter)
+    // Fetch limit+offset results then skip the first `offset`
+    let fetch_count = limit + offset;
+    let mut results = store
+        .search(vector_name, query_embedding, fetch_count, filter)
         .await
         .context("Search failed")?;
+
+    if offset > 0 {
+        let skip = (offset as usize).min(results.len());
+        results = results.split_off(skip);
+    }
+    results.truncate(limit as usize);
 
     Ok(results)
 }
@@ -137,6 +155,9 @@ mod tests {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         assert!(build_filter(&params).is_none());
     }
@@ -155,6 +176,9 @@ mod tests {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = build_filter(&params);
         assert_eq!(filter, Some("hero_position = 'BTN'".to_string()));
@@ -174,6 +198,9 @@ mod tests {
             variant: None,
             betting_limit: None,
             limit: Some(5),
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = build_filter(&params).unwrap();
         assert!(filter.contains("hero_position = 'BTN'"));
@@ -198,6 +225,9 @@ mod tests {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = build_filter(&params).unwrap();
         assert!(filter.contains("O''Brien"));
@@ -217,6 +247,9 @@ mod tests {
             variant: None,
             betting_limit: None,
             limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
         };
         let filter = build_filter(&params).unwrap();
         assert_eq!(filter, "opponent_names LIKE '%,Fish,%'");
