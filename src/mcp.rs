@@ -303,6 +303,34 @@ pub struct CountHandsParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetShowdownHandsParams {
+    #[schemars(description = "Villain name to find showdown hands for")]
+    pub villain: String,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Max results to return (default 20)")]
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetHandContextParams {
+    #[schemars(description = "The hand ID to get surrounding context for")]
+    pub hand_id: u64,
+    #[schemars(description = "Number of hands before and after to include (default 5)")]
+    pub window: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct QueryHandsParams {
+    #[schemars(description = "Raw SQL WHERE clause to filter hands (e.g. \"stakes = '$0.05/$0.10' AND hero_position = 'BTN'\"). Columns: id, game_type, variant, betting_limit, stakes, hero, hero_position, hero_cards, hero_result, board, pot_type, opponent_names, timestamp, is_bomb_pot, is_hi_lo, table_size, num_players, went_to_showdown, tournament_id, pot_amount")]
+    pub filter: String,
+    #[schemars(description = "Max results to return (default 50)")]
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetDatabaseHealthParams {}
 
 // Tool implementations
@@ -1747,6 +1775,187 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Find hands where a specific villain went to showdown and revealed their holdings. Returns villain's cards, board, and outcome for each hand.")]
+    async fn get_showdown_hands(
+        &self,
+        Parameters(params): Parameters<GetShowdownHandsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let limit = params.limit.unwrap_or(20) as usize;
+        let villain = &params.villain;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: Some(villain.clone()),
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let mut results: Vec<serde_json::Value> = Vec::new();
+        for hand in &hands {
+            if results.len() >= limit { break; }
+
+            // Find villain's Shows action
+            let shown = hand.actions.iter().find(|a| {
+                a.player == *villain && matches!(a.action_type, ActionType::Shows { .. })
+            });
+
+            if let Some(action) = shown {
+                if let ActionType::Shows { cards, description, .. } = &action.action_type {
+                    let card_str: String = cards.iter()
+                        .map(|c| match c { Some(c) => c.to_string(), None => "?".to_string() })
+                        .collect::<Vec<_>>().join(" ");
+                    let board: String = hand.board.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+                    let hero_cards: String = hand.hero_cards.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+                    let bb = stats::big_blind_size(hand);
+                    let profit = stats::hero_collected(hand, &self.hero) - stats::hero_invested(hand, &self.hero);
+                    let profit_bb = if bb > 0.0 { profit / bb } else { 0.0 };
+
+                    results.push(serde_json::json!({
+                        "hand_id": hand.id,
+                        "stakes": format!("{}", hand.game_type),
+                        "villain_cards": card_str,
+                        "villain_hand_description": description,
+                        "hero_cards": hero_cards,
+                        "board": board,
+                        "hero_result": format!("{:?}", hand.result.hero_result),
+                        "hero_profit_bb": format!("{:.1}", profit_bb),
+                        "timestamp": hand.timestamp,
+                    }));
+                }
+            }
+        }
+
+        let response = serde_json::json!({
+            "villain": villain,
+            "showdown_hands": results.len(),
+            "hands": results,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Get the surrounding hands from the same table as a given hand ID. Returns hands before and after for understanding table dynamics and momentum.")]
+    async fn get_hand_context(
+        &self,
+        Parameters(params): Parameters<GetHandContextParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let window = params.window.unwrap_or(5);
+
+        // Get the target hand to find its table
+        let target = self
+            .store
+            .get_hand(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to retrieve hand: {}", e)))?
+            .ok_or_else(|| mcp_error(&format!("Hand {} not found", params.hand_id)))?;
+
+        // Scroll all hands from the same table
+        let filter = format!("stakes = '{}'", target.game_type.to_string().replace('\'', "''"));
+        let mut hands = self
+            .store
+            .scroll_hands(Some(filter))
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        // Keep only same table and sort by timestamp
+        hands.retain(|h| h.table_name == target.table_name);
+        hands.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+        // Find the target hand's position
+        let pos = hands.iter().position(|h| h.id == params.hand_id)
+            .ok_or_else(|| mcp_error("Hand not found in table context"))?;
+
+        let start = pos.saturating_sub(window);
+        let end = (pos + window + 1).min(hands.len());
+
+        let context: Vec<serde_json::Value> = hands[start..end].iter().map(|h| {
+            let bb = stats::big_blind_size(h);
+            let profit = stats::hero_collected(h, &self.hero) - stats::hero_invested(h, &self.hero);
+            let cards: String = h.hero_cards.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+            serde_json::json!({
+                "hand_id": h.id,
+                "is_target": h.id == params.hand_id,
+                "timestamp": h.timestamp,
+                "hero_cards": cards,
+                "hero_position": h.hero_position.map(|p| p.to_string()),
+                "hero_result": format!("{:?}", h.result.hero_result),
+                "profit_bb": format!("{:.1}", if bb > 0.0 { profit / bb } else { 0.0 }),
+                "pot_type": stats::classify_pot_type(h),
+            })
+        }).collect();
+
+        let response = serde_json::json!({
+            "table_name": target.table_name,
+            "target_hand_id": params.hand_id,
+            "hands": context,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Power-user tool: query hands with a raw SQL WHERE clause against hand metadata columns. The LLM can construct arbitrary filters beyond what other tools support.")]
+    async fn query_hands(
+        &self,
+        Parameters(params): Parameters<QueryHandsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let limit = params.limit.unwrap_or(50) as usize;
+
+        let hands = self
+            .store
+            .scroll_hands(Some(params.filter))
+            .await
+            .map_err(|e| mcp_error(&format!("Query failed: {}", e)))?;
+
+        let hands: Vec<_> = hands.into_iter().take(limit).collect();
+        let hero = &self.hero;
+
+        let results: Vec<serde_json::Value> = hands.iter().map(|h| {
+            let bb = stats::big_blind_size(h);
+            let profit = stats::hero_collected(h, hero) - stats::hero_invested(h, hero);
+            let cards: String = h.hero_cards.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+            let board: String = h.board.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(" ");
+            serde_json::json!({
+                "hand_id": h.id,
+                "timestamp": h.timestamp,
+                "variant": format!("{}", h.variant),
+                "stakes": format!("{}", h.game_type),
+                "hero_position": h.hero_position.map(|p| p.to_string()),
+                "hero_cards": cards,
+                "board": board,
+                "hero_result": format!("{:?}", h.result.hero_result),
+                "profit_bb": format!("{:.1}", if bb > 0.0 { profit / bb } else { 0.0 }),
+                "pot_type": stats::classify_pot_type(h),
+            })
+        }).collect();
+
+        let response = serde_json::json!({
+            "total_matching": results.len(),
+            "hands": results,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Get database health diagnostics: total hands, variant/stakes breakdowns, date range, data quality checks, and storage size.")]
     async fn get_database_health(
         &self,
@@ -1859,6 +2068,9 @@ impl ServerHandler for PokerVectorMcp {
                  get_hand_history to retrieve raw hand history text, \
                  compare_stats for side-by-side player stat comparison, \
                  count_hands for fast filtered hand counts, \
+                 get_showdown_hands to see villain holdings at showdown, \
+                 get_hand_context for surrounding table hands, \
+                 query_hands for raw SQL WHERE filters, \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),
