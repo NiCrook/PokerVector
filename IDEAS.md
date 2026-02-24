@@ -51,7 +51,7 @@ Find tournament hands near the bubble or final table where stack sizes made the 
 ### ~~`get_villain_profile`~~ ✅
 A single comprehensive tool that combines stats, showdown hands, sizing tendencies, and positional data into one villain report. Saves the LLM from orchestrating 4-5 tool calls.
 
-### `get_villain_tendencies`
+### ~~`get_villain_tendencies`~~ ✅
 How a villain reacts to specific lines: "when hero c-bets and villain calls flop then faces a turn barrel, what does villain do?" Action-reaction sequences.
 
 ### `cluster_villains`
