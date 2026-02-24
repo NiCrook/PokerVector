@@ -19,7 +19,7 @@ const EMBEDDING_DIM: i32 = 384;
 pub struct VectorStore {
     db: Connection,
     table_name: String,
-    table: Option<LanceTable>,
+    table: LanceTable,
 }
 
 #[derive(serde::Serialize)]
@@ -310,43 +310,34 @@ impl VectorStore {
             .execute()
             .await
             .context("Failed to connect to LanceDB")?;
-        Ok(Self {
-            db,
-            table_name: table_name.to_string(),
-            table: None,
-        })
-    }
 
-    fn table(&self) -> Result<&LanceTable> {
-        self.table
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Table not initialized — call ensure_table() first"))
-    }
-
-    pub async fn ensure_table(&mut self) -> Result<()> {
-        let names = self
-            .db
+        let names = db
             .table_names()
             .execute()
             .await
             .context("Failed to list tables")?;
 
-        let table = if names.contains(&self.table_name) {
-            self.db
-                .open_table(&self.table_name)
+        let table = if names.contains(&table_name.to_string()) {
+            db.open_table(table_name)
                 .execute()
                 .await
                 .context("Failed to open table")?
         } else {
-            self.db
-                .create_empty_table(&self.table_name, table_schema())
+            db.create_empty_table(table_name, table_schema())
                 .execute()
                 .await
                 .context("Failed to create table")?
         };
 
-        self.table = Some(table);
-        Ok(())
+        Ok(Self {
+            db,
+            table_name: table_name.to_string(),
+            table,
+        })
+    }
+
+    fn table(&self) -> &LanceTable {
+        &self.table
     }
 
     pub async fn upsert_hand(
@@ -364,7 +355,7 @@ impl VectorStore {
         &self,
         items: Vec<(&Hand, &str, &str, HandEmbeddings)>,
     ) -> Result<()> {
-        let table = self.table()?;
+        let table = self.table();
 
         let hands: Vec<&Hand> = items.iter().map(|(h, _, _, _)| *h).collect();
         let summaries: Vec<&str> = items.iter().map(|(_, s, _, _)| *s).collect();
@@ -395,7 +386,7 @@ impl VectorStore {
         limit: u64,
         filter: Option<String>,
     ) -> Result<Vec<SearchResult>> {
-        let table = self.table()?;
+        let table = self.table();
 
         let mut query = table
             .query()
@@ -497,7 +488,7 @@ impl VectorStore {
         hand_id: u64,
         vector_name: &str,
     ) -> Result<Option<Vec<f32>>> {
-        let table = self.table()?;
+        let table = self.table();
 
         let batches: Vec<RecordBatch> = table
             .query()
@@ -533,7 +524,7 @@ impl VectorStore {
     }
 
     pub async fn hand_exists(&self, hand_id: u64) -> Result<bool> {
-        let table = self.table()?;
+        let table = self.table();
 
         let count = table
             .count_rows(Some(format!("id = {}", hand_id)))
@@ -544,7 +535,7 @@ impl VectorStore {
     }
 
     pub async fn count(&self) -> Result<u64> {
-        let table = self.table()?;
+        let table = self.table();
 
         let count = table
             .count_rows(None)
@@ -555,7 +546,7 @@ impl VectorStore {
     }
 
     pub async fn get_hand(&self, hand_id: u64) -> Result<Option<Hand>> {
-        let table = self.table()?;
+        let table = self.table();
 
         let batches: Vec<RecordBatch> = table
             .query()
@@ -587,7 +578,7 @@ impl VectorStore {
     }
 
     pub async fn scroll_hands(&self, filter: Option<String>) -> Result<Vec<Hand>> {
-        let table = self.table()?;
+        let table = self.table();
 
         let mut query = table
             .query()
@@ -719,22 +710,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_ensure_table_creates_new() {
+    async fn test_new_creates_empty_table() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = VectorStore::new(dir.path().to_str().unwrap(), "test")
+        let store = VectorStore::new(dir.path().to_str().unwrap(), "test")
             .await
             .unwrap();
-        store.ensure_table().await.unwrap();
         assert_eq!(store.count().await.unwrap(), 0);
     }
 
     #[tokio::test]
     async fn test_upsert_and_get_round_trip() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = VectorStore::new(dir.path().to_str().unwrap(), "test")
+        let store = VectorStore::new(dir.path().to_str().unwrap(), "test")
             .await
             .unwrap();
-        store.ensure_table().await.unwrap();
 
         let hand = make_test_hand(12345);
         store
@@ -752,10 +741,9 @@ mod tests {
     #[tokio::test]
     async fn test_hand_exists() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = VectorStore::new(dir.path().to_str().unwrap(), "test")
+        let store = VectorStore::new(dir.path().to_str().unwrap(), "test")
             .await
             .unwrap();
-        store.ensure_table().await.unwrap();
 
         let hand = make_test_hand(99999);
         store
@@ -770,10 +758,9 @@ mod tests {
     #[tokio::test]
     async fn test_scroll_with_filter() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = VectorStore::new(dir.path().to_str().unwrap(), "test")
+        let store = VectorStore::new(dir.path().to_str().unwrap(), "test")
             .await
             .unwrap();
-        store.ensure_table().await.unwrap();
 
         let hand1 = make_test_hand(1);
         let mut hand2 = make_test_hand(2);
@@ -814,10 +801,9 @@ mod tests {
     #[tokio::test]
     async fn test_count() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = VectorStore::new(dir.path().to_str().unwrap(), "test")
+        let store = VectorStore::new(dir.path().to_str().unwrap(), "test")
             .await
             .unwrap();
-        store.ensure_table().await.unwrap();
 
         assert_eq!(store.count().await.unwrap(), 0);
 
@@ -836,10 +822,9 @@ mod tests {
     #[tokio::test]
     async fn test_upsert_dedup() {
         let dir = tempfile::tempdir().unwrap();
-        let mut store = VectorStore::new(dir.path().to_str().unwrap(), "test")
+        let store = VectorStore::new(dir.path().to_str().unwrap(), "test")
             .await
             .unwrap();
-        store.ensure_table().await.unwrap();
 
         store
             .upsert_hand(&make_test_hand(1), "first", "a1", make_test_embeddings())

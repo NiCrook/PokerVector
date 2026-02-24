@@ -204,8 +204,7 @@ async fn main() -> Result<()> {
 
                     println!("Opening database...");
                     let data_dir = config::data_dir();
-                    let mut store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
-                    store.ensure_table().await?;
+                    let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
 
                     import_one(&path, &hero, &mut embedder, &store).await?;
                 }
@@ -221,8 +220,7 @@ async fn main() -> Result<()> {
 
                     println!("Opening database...");
                     let data_dir = config::data_dir();
-                    let mut store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
-                    store.ensure_table().await?;
+                    let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
 
                     let mut total_imported = 0u64;
                     let mut total_skipped = 0u64;
@@ -263,12 +261,9 @@ async fn main() -> Result<()> {
             println!();
 
             match storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await {
-                Ok(mut store) => match store.ensure_table().await {
-                    Ok(()) => match store.count().await {
-                        Ok(count) => println!("Stored hands: {}", count),
-                        Err(e) => println!("Failed to read database: {}", e),
-                    },
-                    Err(e) => println!("No data yet: {}", e),
+                Ok(store) => match store.count().await {
+                    Ok(count) => println!("Stored hands: {}", count),
+                    Err(e) => println!("Failed to read database: {}", e),
                 },
                 Err(e) => println!("Failed to open database: {}", e),
             }
@@ -285,9 +280,8 @@ async fn main() -> Result<()> {
 
             eprintln!("Opening database...");
             let data_dir = config::data_dir();
-            let mut store =
+            let store =
                 storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
-            store.ensure_table().await?;
 
             eprintln!("Starting MCP server (hero: {})...", hero);
             let server = mcp::PokerVectorMcp::new(store, embedder, hero);
