@@ -442,6 +442,26 @@ pub struct DetectTiltParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetStreetStatsParams {
+    #[schemars(description = "Player name to analyze (defaults to hero)")]
+    pub player: Option<String>,
+    #[schemars(description = "Filter by villain name (only count hands where this villain was present)")]
+    pub villain: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter by betting limit: no_limit, pot_limit, fixed_limit")]
+    pub betting_limit: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetTrendsParams {
     #[schemars(description = "Time bucket size: 'day', 'week' (default), or 'month'")]
     pub period: Option<String>,
@@ -2858,6 +2878,166 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Per-street action frequencies for a player. Shows bet/raise/call/check/fold counts and percentages on each street (flop, turn, river). Goes deeper than aggregate stats to answer 'how often does villain fold to turn barrels?' or 'what is hero's river aggression?'")]
+    async fn get_street_stats(
+        &self,
+        Parameters(params): Parameters<GetStreetStatsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let player = params.player.as_deref().unwrap_or(&self.hero);
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: params.villain,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: params.betting_limit,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        if hands.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "streets": {},
+                    "total_hands": 0,
+                    "message": "No hands found matching filters.",
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        // Count actions per street
+        struct StreetCounts {
+            hands_seen: u64,
+            bets: u64,
+            raises: u64,
+            calls: u64,
+            checks: u64,
+            folds: u64,
+        }
+
+        impl StreetCounts {
+            fn new() -> Self {
+                Self { hands_seen: 0, bets: 0, raises: 0, calls: 0, checks: 0, folds: 0 }
+            }
+            fn total_actions(&self) -> u64 {
+                self.bets + self.raises + self.calls + self.checks + self.folds
+            }
+            fn aggressive_actions(&self) -> u64 {
+                self.bets + self.raises
+            }
+        }
+
+        let mut flop = StreetCounts::new();
+        let mut turn = StreetCounts::new();
+        let mut river = StreetCounts::new();
+
+        let streets_of_interest = [Street::Flop, Street::Turn, Street::River];
+
+        for hand in &hands {
+            // Check if player is in this hand (not sitting out)
+            let in_hand = hand.players.iter().any(|p| p.name == player && !p.is_sitting_out);
+            if !in_hand {
+                continue;
+            }
+
+            // Track which streets the player saw (had at least one action)
+            for &street in &streets_of_interest {
+                let player_acted = hand.actions.iter().any(|a| a.player == player && a.street == street);
+                if player_acted {
+                    let counts = match street {
+                        Street::Flop => &mut flop,
+                        Street::Turn => &mut turn,
+                        Street::River => &mut river,
+                        _ => continue,
+                    };
+                    counts.hands_seen += 1;
+                }
+            }
+
+            // Count each action
+            for action in &hand.actions {
+                if action.player != player {
+                    continue;
+                }
+                let counts = match action.street {
+                    Street::Flop => &mut flop,
+                    Street::Turn => &mut turn,
+                    Street::River => &mut river,
+                    _ => continue,
+                };
+
+                match &action.action_type {
+                    ActionType::Bet { .. } => counts.bets += 1,
+                    ActionType::Raise { .. } => counts.raises += 1,
+                    ActionType::Call { .. } => counts.calls += 1,
+                    ActionType::Check => counts.checks += 1,
+                    ActionType::Fold => counts.folds += 1,
+                    _ => {}
+                }
+            }
+        }
+
+        let pct = |num: u64, den: u64| -> f64 {
+            if den > 0 { num as f64 / den as f64 * 100.0 } else { 0.0 }
+        };
+
+        let street_json = |name: &str, c: &StreetCounts| -> serde_json::Value {
+            let total = c.total_actions();
+            let agg = c.aggressive_actions();
+            let af = if c.calls > 0 { agg as f64 / c.calls as f64 } else if agg > 0 { f64::INFINITY } else { 0.0 };
+            serde_json::json!({
+                "street": name,
+                "hands_seen": c.hands_seen,
+                "total_actions": total,
+                "bets": c.bets,
+                "raises": c.raises,
+                "calls": c.calls,
+                "checks": c.checks,
+                "folds": c.folds,
+                "bet_pct": format!("{:.1}", pct(c.bets, total)),
+                "raise_pct": format!("{:.1}", pct(c.raises, total)),
+                "call_pct": format!("{:.1}", pct(c.calls, total)),
+                "check_pct": format!("{:.1}", pct(c.checks, total)),
+                "fold_pct": format!("{:.1}", pct(c.folds, total)),
+                "aggression_pct": format!("{:.1}", pct(agg, total)),
+                "aggression_factor": if af.is_infinite() { "inf".to_string() } else { format!("{:.2}", af) },
+            })
+        };
+
+        let total_hands = hands.iter()
+            .filter(|h| h.players.iter().any(|p| p.name == player && !p.is_sitting_out))
+            .count();
+
+        let response = serde_json::json!({
+            "player": player,
+            "total_hands": total_hands,
+            "streets": [
+                street_json("flop", &flop),
+                street_json("turn", &turn),
+                street_json("river", &river),
+            ],
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Detect sessions where hero's play deviated significantly from their baseline. Flags potential tilt — VPIP spikes, aggression changes, or unusual loss patterns after big hands. Compares per-session stats against overall averages.")]
     async fn detect_tilt(
         &self,
@@ -3311,6 +3491,7 @@ impl ServerHandler for PokerVectorMcp {
                  get_trends for stats over time (by day/week/month), \
                  find_leaks for automated leak detection against baseline ranges, \
                  detect_tilt to find sessions where play deviated from baseline, \
+                 get_street_stats for per-street action frequencies (flop/turn/river), \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),

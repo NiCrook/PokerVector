@@ -32,7 +32,7 @@ Find hands where hero folded but the action line suggests a bluff might have wor
 ### `tag_hand`
 Let the user tag/annotate hands with labels ("bad call", "good bluff", "review later") that persist in the DB. Then `search_hands` can filter by tag.
 
-### `get_street_stats`
+### ~~`get_street_stats`~~ ✅
 Per-street aggression/fold frequencies. "How often does villain fold to turn barrels?" Goes deeper than the current aggregate stats.
 
 ## Tournament Tools
