@@ -494,6 +494,24 @@ pub struct GetVillainTendenciesParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetBoardStatsParams {
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
+    pub position: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetTrendsParams {
     #[schemars(description = "Time bucket size: 'day', 'week' (default), or 'month'")]
     pub period: Option<String>,
@@ -2910,6 +2928,232 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    #[tool(description = "Analyze hero's performance on different board textures. Classifies flops by texture (monotone, two-tone, rainbow, paired, connected, high, low, dry, wet) and shows hands played, winrate, and c-bet frequency for each. Answers 'how do I perform on wet boards?' or 'should I c-bet more on dry flops?'")]
+    async fn get_board_stats(
+        &self,
+        Parameters(params): Parameters<GetBoardStatsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: params.position,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: None,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        if hands.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "textures": [],
+                    "total_hands": 0,
+                    "message": "No hands found matching filters.",
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        // Board texture classification functions (flop only = first 3 cards)
+        fn suit_texture(board: &[Card]) -> &'static str {
+            if board.len() < 3 { return "unknown"; }
+            let s1 = board[0].suit;
+            let s2 = board[1].suit;
+            let s3 = board[2].suit;
+            if s1 == s2 && s2 == s3 { "monotone" }
+            else if s1 != s2 && s2 != s3 && s1 != s3 { "rainbow" }
+            else { "two-tone" }
+        }
+
+        fn is_paired(board: &[Card]) -> bool {
+            if board.len() < 3 { return false; }
+            let r = [rank_order(board[0].rank), rank_order(board[1].rank), rank_order(board[2].rank)];
+            r[0] == r[1] || r[1] == r[2] || r[0] == r[2]
+        }
+
+        fn is_connected(board: &[Card]) -> bool {
+            if board.len() < 3 { return false; }
+            let mut r = [rank_order(board[0].rank), rank_order(board[1].rank), rank_order(board[2].rank)];
+            r.sort();
+            // Connected = at least 2 cards within 2 ranks of each other, with max spread <= 4
+            let spread = r[2] - r[0];
+            spread <= 4
+        }
+
+        fn highness(board: &[Card]) -> &'static str {
+            if board.len() < 3 { return "unknown"; }
+            let high_cards = board.iter().take(3)
+                .filter(|c| rank_order(c.rank) >= 10) // T or higher
+                .count();
+            if high_cards >= 2 { "high" }
+            else if high_cards == 0 { "low" }
+            else { "mid" }
+        }
+
+        fn wetness(board: &[Card]) -> &'static str {
+            if board.len() < 3 { return "unknown"; }
+            // Wet = flush draw possible (two-tone or monotone) AND/OR straight draw possible (connected)
+            let flush_draw = {
+                let s1 = board[0].suit;
+                let s2 = board[1].suit;
+                let s3 = board[2].suit;
+                s1 == s2 || s2 == s3 || s1 == s3
+            };
+            let straight_draw = is_connected(board);
+            if flush_draw && straight_draw { "very wet" }
+            else if flush_draw || straight_draw { "wet" }
+            else { "dry" }
+        }
+
+        // Texture categories (non-exclusive — a board can be in multiple)
+        let texture_names = [
+            "monotone", "two-tone", "rainbow",
+            "paired", "connected",
+            "high", "mid", "low",
+            "dry", "wet", "very wet",
+        ];
+
+        struct TextureBucket {
+            hands: u64,
+            wins: u64,
+            profit_bb: f64,
+            total_bb: f64,
+            cbet_opps: u64,
+            cbet_count: u64,
+        }
+        impl TextureBucket {
+            fn new() -> Self {
+                Self { hands: 0, wins: 0, profit_bb: 0.0, total_bb: 0.0, cbet_opps: 0, cbet_count: 0 }
+            }
+        }
+
+        let mut buckets: HashMap<&str, TextureBucket> = HashMap::new();
+        for name in &texture_names {
+            buckets.insert(name, TextureBucket::new());
+        }
+        let mut total_flop_hands = 0u64;
+
+        for hand in &hands {
+            let in_hand = hand.players.iter().any(|p| p.name == hero && !p.is_sitting_out);
+            if !in_hand { continue; }
+
+            // Need at least a flop (3 board cards)
+            if hand.board.len() < 3 { continue; }
+
+            // Did hero see the flop?
+            let hero_saw_flop = hand.actions.iter().any(|a| {
+                a.player == hero && a.street == Street::Flop
+            });
+            if !hero_saw_flop { continue; }
+
+            total_flop_hands += 1;
+
+            let bb = stats::big_blind_size(hand);
+            let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+            let profit_bb_val = if bb > 0.0 { profit / bb } else { 0.0 };
+            let won = profit > 0.0;
+
+            // Was hero the preflop raiser? (for c-bet tracking)
+            let hero_was_pfr = hand.actions.iter().any(|a| {
+                a.player == hero && a.street == Street::Preflop
+                    && matches!(&a.action_type, ActionType::Raise { .. })
+            });
+
+            // Did hero c-bet flop?
+            let hero_cbet = hero_was_pfr && hand.actions.iter().any(|a| {
+                a.player == hero && a.street == Street::Flop
+                    && matches!(&a.action_type, ActionType::Bet { .. })
+            });
+
+            // Classify this board into its textures
+            let flop = &hand.board[..3];
+            let suit_tex = suit_texture(flop);
+            let paired = is_paired(flop);
+            let connected = is_connected(flop);
+            let high_tex = highness(flop);
+            let wet_tex = wetness(flop);
+
+            let mut apply = |name: &'static str| {
+                let b = buckets.get_mut(name).unwrap();
+                b.hands += 1;
+                if won { b.wins += 1; }
+                b.profit_bb += profit_bb_val;
+                b.total_bb += bb;
+                if hero_was_pfr {
+                    b.cbet_opps += 1;
+                    if hero_cbet { b.cbet_count += 1; }
+                }
+            };
+
+            // Suit texture (exactly one)
+            apply(suit_tex);
+            // Paired
+            if paired { apply("paired"); }
+            // Connected
+            if connected { apply("connected"); }
+            // Highness (exactly one)
+            apply(high_tex);
+            // Wetness (exactly one)
+            apply(wet_tex);
+        }
+
+        let pct = |n: u64, d: u64| -> f64 {
+            if d > 0 { n as f64 / d as f64 * 100.0 } else { 0.0 }
+        };
+
+        let mut textures: Vec<serde_json::Value> = texture_names.iter()
+            .filter_map(|&name| {
+                let b = buckets.get(name).unwrap();
+                if b.hands == 0 { return None; }
+                let winrate = if b.hands > 0 {
+                    b.profit_bb / b.hands as f64 * 100.0
+                } else { 0.0 };
+                Some(serde_json::json!({
+                    "texture": name,
+                    "hands": b.hands,
+                    "win_pct": format!("{:.1}", pct(b.wins, b.hands)),
+                    "winrate_bb100": format!("{:.1}", winrate),
+                    "profit_bb": format!("{:.1}", b.profit_bb),
+                    "cbet_pct": format!("{:.1}", pct(b.cbet_count, b.cbet_opps)),
+                    "cbet_opportunities": b.cbet_opps,
+                }))
+            })
+            .collect();
+
+        // Sort by hand count descending
+        textures.sort_by(|a, b| {
+            let ha = a["hands"].as_u64().unwrap_or(0);
+            let hb = b["hands"].as_u64().unwrap_or(0);
+            hb.cmp(&ha)
+        });
+
+        let response = serde_json::json!({
+            "player": hero,
+            "total_hands_with_flop": total_flop_hands,
+            "textures": textures,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     #[tool(description = "Analyze how a villain reacts to specific betting lines. Shows action-reaction patterns: how villain responds to c-bets, barrels, checks, and probes on each street. Answers questions like 'when I c-bet flop and villain calls, what does villain do facing a turn barrel?'")]
     async fn get_villain_tendencies(
         &self,
@@ -4069,6 +4313,7 @@ impl ServerHandler for PokerVectorMcp {
                  get_street_stats for per-street action frequencies (flop/turn/river), \
                  get_sizing_profile for bet sizing distribution analysis by street, \
                  get_villain_tendencies for action-reaction patterns against a specific villain, \
+                 get_board_stats for hero performance by board texture (monotone/paired/wet/dry/etc.), \
                  and get_database_health for database diagnostics."
                     .to_string(),
             ),

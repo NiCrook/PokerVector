@@ -108,7 +108,7 @@ Dedup count, hands missing embeddings, orphaned records, storage size. Maintenan
 
 ## Board Texture Analysis
 
-### `get_board_stats`
+### ~~`get_board_stats`~~ ✅
 How does hero perform on different board textures? Monotone, paired, connected, dry, wet. Breakdown by street and action taken.
 
 ### `get_runout_frequencies`
