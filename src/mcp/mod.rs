@@ -479,25 +479,7 @@ impl PokerVectorMcp {
         &self,
         Parameters(params): Parameters<SearchSimilarParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let vector_name = match params.mode.as_deref() {
-            Some("semantic") => "summary",
-            _ => "action",
-        };
-        let limit = params.limit.unwrap_or(10);
-
-        let results = search::search_similar_actions(
-            &self.store,
-            params.hand_id,
-            vector_name,
-            limit,
-            None,
-        )
-        .await
-        .map_err(|e| mcp_error(&format!("Similar search failed: {}", e)))?;
-
-        let json = serde_json::to_string_pretty(&results)
-            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
-        Ok(CallToolResult::success(vec![Content::text(json)]))
+        self.tool_search_similar_hands(params).await
     }
 
     #[tool(description = "Import new hand histories from configured account directories (or a specific path). Updates the database with any new hands found.")]

@@ -3,7 +3,7 @@ use rmcp::model::*;
 use crate::search::{self, SearchParams};
 
 use super::helpers::mcp_error;
-use super::params::*;
+use super::params::{SearchHandsParams, SearchSimilarParams};
 use super::PokerVectorMcp;
 
 impl PokerVectorMcp {
@@ -35,6 +35,31 @@ impl PokerVectorMcp {
         let results = search::search_hands(&self.store, &mut *embedder, search_params)
             .await
             .map_err(|e| mcp_error(&format!("Search failed: {}", e)))?;
+        let json = serde_json::to_string_pretty(&results)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_search_similar_hands(
+        &self,
+        params: SearchSimilarParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let vector_name = match params.mode.as_deref() {
+            Some("semantic") => "summary",
+            _ => "action",
+        };
+        let limit = params.limit.unwrap_or(10);
+
+        let results = search::search_similar_actions(
+            &self.store,
+            params.hand_id,
+            vector_name,
+            limit,
+            None,
+        )
+        .await
+        .map_err(|e| mcp_error(&format!("Similar search failed: {}", e)))?;
+
         let json = serde_json::to_string_pretty(&results)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
