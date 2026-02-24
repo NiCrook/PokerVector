@@ -14,6 +14,10 @@ pub(crate) struct CbetResult {
     pub fold_to_turn: (bool, bool),
     /// (opportunity, did_fold) for facing river cbet
     pub fold_to_river: (bool, bool),
+    /// (opportunity, did_raise) for raising flop cbet
+    pub raise_cbet_flop: (bool, bool),
+    /// (opportunity, did_raise) for raising turn cbet
+    pub raise_cbet_turn: (bool, bool),
 }
 
 pub(crate) fn cbet_analysis(hand: &Hand, player: &str) -> CbetResult {
@@ -27,6 +31,8 @@ pub(crate) fn cbet_analysis(hand: &Hand, player: &str) -> CbetResult {
         fold_to_flop: (false, false),
         fold_to_turn: (false, false),
         fold_to_river: (false, false),
+        raise_cbet_flop: (false, false),
+        raise_cbet_turn: (false, false),
     };
 
     // C-bet: player is PFA, first bet on the street
@@ -82,8 +88,12 @@ pub(crate) fn cbet_analysis(hand: &Hand, player: &str) -> CbetResult {
                             .find(|a| a.street == Street::Flop && a.player == player);
                         if let Some(resp) = player_response {
                             result.fold_to_flop.0 = true;
+                            result.raise_cbet_flop.0 = true;
                             if matches!(resp.action_type, ActionType::Fold) {
                                 result.fold_to_flop.1 = true;
+                            }
+                            if matches!(resp.action_type, ActionType::Raise { .. }) {
+                                result.raise_cbet_flop.1 = true;
                             }
                         }
                     }
@@ -105,8 +115,12 @@ pub(crate) fn cbet_analysis(hand: &Hand, player: &str) -> CbetResult {
                                 .find(|a| a.street == Street::Turn && a.player == player);
                             if let Some(resp) = player_response {
                                 result.fold_to_turn.0 = true;
+                                result.raise_cbet_turn.0 = true;
                                 if matches!(resp.action_type, ActionType::Fold) {
                                     result.fold_to_turn.1 = true;
+                                }
+                                if matches!(resp.action_type, ActionType::Raise { .. }) {
+                                    result.raise_cbet_turn.1 = true;
                                 }
                             }
 
@@ -268,5 +282,51 @@ mod tests {
 
         let stats = calculate_stats(&[hand], "Hero");
         assert!((stats.fold_to_cbet_flop - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_raise_cbet_flop() {
+        // Villain raises (PFA), Hero calls. Flop: Villain c-bets, Hero raises.
+        let mut hand = sixmax_hand();
+        hand.actions = vec![
+            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
+            Action { player: "Fish".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(3.00), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(3.00), all_in: false }, street: Street::Preflop },
+            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            // Flop: PFA c-bets, hero raises
+            Action { player: "Villain".to_string(), action_type: ActionType::Bet { amount: make_money(4.00), all_in: false }, street: Street::Flop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(4.00), to: make_money(12.00), all_in: false }, street: Street::Flop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Flop },
+        ];
+        hand.board = vec![make_card('T', 'h'), make_card('5', 'd'), make_card('2', 'c')];
+
+        let stats = calculate_stats(&[hand], "Hero");
+        assert!((stats.raise_cbet_flop - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_raise_cbet_turn() {
+        // Villain raises (PFA), Hero calls. Flop: Villain c-bets, Hero calls.
+        // Turn: Villain c-bets again, Hero raises.
+        let mut hand = sixmax_hand();
+        hand.actions = vec![
+            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
+            Action { player: "Fish".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
+            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(3.00), all_in: false }, street: Street::Preflop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(3.00), all_in: false }, street: Street::Preflop },
+            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            // Flop: PFA c-bets, hero calls
+            Action { player: "Villain".to_string(), action_type: ActionType::Bet { amount: make_money(4.00), all_in: false }, street: Street::Flop },
+            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(4.00), all_in: false }, street: Street::Flop },
+            // Turn: PFA c-bets, hero raises
+            Action { player: "Villain".to_string(), action_type: ActionType::Bet { amount: make_money(8.00), all_in: false }, street: Street::Turn },
+            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(8.00), to: make_money(24.00), all_in: false }, street: Street::Turn },
+            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Turn },
+        ];
+        hand.board = vec![make_card('T', 'h'), make_card('5', 'd'), make_card('2', 'c'), make_card('7', 's')];
+
+        let stats = calculate_stats(&[hand], "Hero");
+        assert!((stats.raise_cbet_turn - 100.0).abs() < 0.01);
     }
 }

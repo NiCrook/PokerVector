@@ -98,18 +98,16 @@ pub(crate) fn float_analysis(hand: &Hand, player: &str) -> (u64, u64) {
     (opportunities, floats)
 }
 
-/// Check-raise: check then raise on the same postflop street.
-/// Returns (opportunities: times checked and faced a bet, did_check_raise).
-pub(crate) fn check_raise_analysis(hand: &Hand, player: &str) -> (u64, u64) {
-    let mut opportunities = 0u64;
-    let mut check_raises = 0u64;
+/// Check-raise per street: check then raise on the same postflop street.
+/// Returns (flop_opp, flop_cr, turn_opp, turn_cr, river_opp, river_cr).
+pub(crate) fn check_raise_by_street_analysis(hand: &Hand, player: &str) -> (u64, u64, u64, u64, u64, u64) {
+    let mut results = [(0u64, 0u64); 3]; // flop, turn, river
 
-    for &street in &[Street::Flop, Street::Turn, Street::River] {
+    for (i, &street) in [Street::Flop, Street::Turn, Street::River].iter().enumerate() {
         let street_actions: Vec<&Action> = hand.actions.iter()
             .filter(|a| a.street == street)
             .collect();
 
-        // Did player check on this street?
         let player_checked = street_actions.iter()
             .any(|a| a.player == player && matches!(a.action_type, ActionType::Check));
 
@@ -117,7 +115,6 @@ pub(crate) fn check_raise_analysis(hand: &Hand, player: &str) -> (u64, u64) {
             continue;
         }
 
-        // Was there a bet after player's check?
         let mut past_check = false;
         let mut faced_bet = false;
         for action in &street_actions {
@@ -130,16 +127,23 @@ pub(crate) fn check_raise_analysis(hand: &Hand, player: &str) -> (u64, u64) {
                 continue;
             }
             if faced_bet && action.player == player {
-                opportunities += 1;
+                results[i].0 += 1;
                 if matches!(action.action_type, ActionType::Raise { .. }) {
-                    check_raises += 1;
+                    results[i].1 += 1;
                 }
                 break;
             }
         }
     }
 
-    (opportunities, check_raises)
+    (results[0].0, results[0].1, results[1].0, results[1].1, results[2].0, results[2].1)
+}
+
+/// Check-raise: check then raise on the same postflop street (aggregate).
+/// Returns (opportunities: times checked and faced a bet, did_check_raise).
+pub(crate) fn check_raise_analysis(hand: &Hand, player: &str) -> (u64, u64) {
+    let (fo, fc, to, tc, ro, rc) = check_raise_by_street_analysis(hand, player);
+    (fo + to + ro, fc + tc + rc)
 }
 
 /// Probe bet: PFA checked behind on a street, player bets on the next street.
