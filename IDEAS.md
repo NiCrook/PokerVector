@@ -168,34 +168,34 @@ Add `from_date` / `to_date` params to `search_hands`, `get_stats`, `list_villain
 ### ~~Pagination on `search_hands`~~ ✅
 Add an `offset` param so the LLM can page through results instead of being capped at one batch.
 
-## Villain / Pool Stats (Player-Agnostic Profiling)
+## ~~Villain / Pool Stats (Player-Agnostic Profiling)~~ ✅
 
-The stats system is hero-centric. `calculate_stats()` mostly works for any player name (the helpers are already name-parameterized), but `won_at_showdown_pct` is broken for non-hero players because it checks `hand.result.hero_result == HeroResult::Won` instead of deriving win/loss from collected vs invested. `list_villains()` duplicates a subset of the same stat logic rather than reusing `calculate_stats`.
+~~The stats system is hero-centric. `calculate_stats()` mostly works for any player name (the helpers are already name-parameterized), but `won_at_showdown_pct` is broken for non-hero players because it checks `hand.result.hero_result == HeroResult::Won` instead of deriving win/loss from collected vs invested. `list_villains()` duplicates a subset of the same stat logic rather than reusing `calculate_stats`.~~
 
-### Phase 1: Fix `calculate_stats` for any player
-- Replace `hand.result.hero_result == HeroResult::Won` check at showdown with `collected > invested` (already computed as `hand_profit > 0.0`)
-- This is the only broken codepath — `hero_invested`/`hero_collected`/`hero_saw_street`/`hero_folded_before_showdown` all take a name param and work for any player
-- After the fix, `calculate_stats(hands, "SomeVillain")` returns a correct full 40+ stat profile
-- Existing hero usage is unchanged (profit-based check matches HeroResult::Won in all cases)
+### ~~Phase 1: Fix `calculate_stats` for any player~~ ✅
+- ~~Replace `hand.result.hero_result == HeroResult::Won` check at showdown with `collected > invested` (already computed as `hand_profit > 0.0`)~~
+- ~~This is the only broken codepath — `hero_invested`/`hero_collected`/`hero_saw_street`/`hero_folded_before_showdown` all take a name param and work for any player~~
+- ~~After the fix, `calculate_stats(hands, "SomeVillain")` returns a correct full 40+ stat profile~~
+- ~~Existing hero usage is unchanged (profit-based check matches HeroResult::Won in all cases)~~
 
-### Phase 2: Deduplicate `list_villains`
-- `list_villains()` manually computes ~10 stats (VPIP, PFR, 3-bet, AF, etc.) that `calculate_stats` already covers
-- Refactor to call `calculate_stats` per villain, then map to `VillainSummary`
-- Keeps `VillainSummary` as a lighter response type but derives it from the full stats
-- Could add more fields to `VillainSummary` cheaply since the full stats are already computed
+### ~~Phase 2: Deduplicate `list_villains`~~ ✅
+- ~~`list_villains()` manually computes ~10 stats (VPIP, PFR, 3-bet, AF, etc.) that `calculate_stats` already covers~~
+- ~~Refactor to call `calculate_stats` per villain, then map to `VillainSummary`~~
+- ~~Keeps `VillainSummary` as a lighter response type but derives it from the full stats~~
+- ~~Could add more fields to `VillainSummary` cheaply since the full stats are already computed~~
 
-### Phase 3: Pool stats MCP tool — `get_pool_stats`
-- Compute aggregate stats across ALL non-hero players at a given stake level
-- "What does the average player do in this player pool?"
-- Implementation: iterate all unique player names from hands, run `calculate_stats` for each, then average/weight by hand count
-- Filter params: `stakes`, `game_type`, `min_hands` (per-player threshold to avoid noise from 1-hand players)
-- Returns weighted-average `PlayerStats` plus distributions (e.g. "VPIP: mean 32%, median 28%, P25 22%, P75 40%")
-- Enables questions like "is this villain tighter than the pool average?" or "what's the typical 3-bet% at $0.01/0.02?"
+### ~~Phase 3: Pool stats MCP tool — `get_pool_stats`~~ ✅
+- ~~Compute aggregate stats across ALL non-hero players at a given stake level~~
+- ~~"What does the average player do in this player pool?"~~
+- ~~Implementation: iterate all unique player names from hands, run `calculate_stats` for each, then average/weight by hand count~~
+- ~~Filter params: `stakes`, `game_type`, `min_hands` (per-player threshold to avoid noise from 1-hand players)~~
+- ~~Returns weighted-average `PlayerStats` plus distributions (e.g. "VPIP: mean 32%, median 28%, P25 22%, P75 40%")~~
+- ~~Enables questions like "is this villain tighter than the pool average?" or "what's the typical 3-bet% at $0.01/0.02?"~~
 
-### Phase 4: `get_villain_full_stats` MCP tool
-- Like `get_villain_profile` but returns the complete `PlayerStats` (40+ stats) instead of the slimmed-down version
-- Already nearly works via `get_villain_profile` which calls `calculate_stats(hands, villain)` — just needs the Phase 1 fix
-- Add optional `compare_to_pool: bool` param that includes pool averages alongside the villain's stats for context
+### ~~Phase 4: `compare_to_pool` on `get_villain_profile`~~ ✅
+- ~~Like `get_villain_profile` but returns the complete `PlayerStats` (40+ stats) instead of the slimmed-down version~~
+- ~~Already nearly works via `get_villain_profile` which calls `calculate_stats(hands, villain)` — just needs the Phase 1 fix~~
+- ~~Add optional `compare_to_pool: bool` param that includes pool averages alongside the villain's stats for context~~
 
 ### Performance note
 - Pool stats (Phase 3) is O(unique_players * hands) which could be slow for large databases
