@@ -1,7 +1,63 @@
+use std::sync::OnceLock;
 use regex::Regex;
 
 use crate::parsers::*;
 use crate::types::*;
+
+fn re_header_tournament() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(
+        r"^Game Hand #(\d+) - Tournament #(\d+) - (.+?) \((.+?)\) - Level (\d+) \(([0-9.]+)/([0-9.]+)\) - (.+) UTC$"
+    ).unwrap())
+}
+
+fn re_header_cash() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(
+        r"^Hand #(\d+) - (.+?) \((.+?)\) - \$([0-9.]+)/\$([0-9.]+)(?:, Ante \$([0-9.]+))? - (.+) UTC$"
+    ).unwrap())
+}
+
+fn re_table_tournament() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(
+        r"^Table '(.+?)' (\d+)-max Seat #(\d+) is the button$"
+    ).unwrap())
+}
+
+fn re_table_cash() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(
+        r"^(.+?) (\d+)-max Seat #(\d+) is the button$"
+    ).unwrap())
+}
+
+fn re_table_stud() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^(.+?) (\d+)-max$").unwrap())
+}
+
+fn re_seat() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(
+        r"^Seat (\d+): (.+?) \((\$?[0-9.]+)\)(?:\s+is sitting out)?$"
+    ).unwrap())
+}
+
+fn re_summary_position() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^(.+?) \((button|small blind|big blind)\)").unwrap())
+}
+
+fn re_uncalled_bet() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^Uncalled bet \((\$?[0-9.]+)\) returned to (.+)$").unwrap())
+}
+
+fn re_bracket_cards() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\[([^\]]+)\]").unwrap())
+}
 
 pub struct AcrParser;
 
@@ -335,10 +391,7 @@ fn parse_variant_limit(game_str: &str, limit_str: &str) -> (PokerVariant, Bettin
 fn parse_header(line: &str) -> ParseResult<HeaderInfo> {
     // Tournament: "Game Hand #ID - Tournament #TID - GAME (LIMIT) - Level L (SB/BB) - TIMESTAMP UTC"
     if line.starts_with("Game Hand #") {
-        let re = Regex::new(
-            r"^Game Hand #(\d+) - Tournament #(\d+) - (.+?) \((.+?)\) - Level (\d+) \(([0-9.]+)/([0-9.]+)\) - (.+) UTC$"
-        ).unwrap();
-        if let Some(caps) = re.captures(line) {
+        if let Some(caps) = re_header_tournament().captures(line) {
             let hand_id: u64 = caps[1].parse().map_err(|_| ParseError::Header(line.into()))?;
             let tournament_id: u64 = caps[2].parse().map_err(|_| ParseError::Header(line.into()))?;
             let (variant, betting_limit, is_hi_lo) = parse_variant_limit(&caps[3], &caps[4]);
@@ -367,10 +420,7 @@ fn parse_header(line: &str) -> ParseResult<HeaderInfo> {
 
     // Cash: "Hand #ID - GAME (LIMIT) - $SB/$BB[, Ante $ANTE] - TIMESTAMP UTC"
     if line.starts_with("Hand #") {
-        let re = Regex::new(
-            r"^Hand #(\d+) - (.+?) \((.+?)\) - \$([0-9.]+)/\$([0-9.]+)(?:, Ante \$([0-9.]+))? - (.+) UTC$"
-        ).unwrap();
-        if let Some(caps) = re.captures(line) {
+        if let Some(caps) = re_header_cash().captures(line) {
             let hand_id: u64 = caps[1].parse().map_err(|_| ParseError::Header(line.into()))?;
             let (variant, betting_limit, is_hi_lo) = parse_variant_limit(&caps[2], &caps[3]);
             let sb: f64 = caps[4].parse().map_err(|_| ParseError::Header(line.into()))?;
@@ -402,10 +452,7 @@ fn parse_header(line: &str) -> ParseResult<HeaderInfo> {
 
 fn parse_table_line(line: &str) -> ParseResult<(String, u8, u8)> {
     // Tournament: "Table 'N' M-max Seat #B is the button"
-    let re_tournament = Regex::new(
-        r"^Table '(.+?)' (\d+)-max Seat #(\d+) is the button$"
-    ).unwrap();
-    if let Some(caps) = re_tournament.captures(line) {
+    if let Some(caps) = re_table_tournament().captures(line) {
         let table_name = caps[1].to_string();
         let table_size: u8 = caps[2].parse().map_err(|_| ParseError::Table(line.into()))?;
         let button_seat: u8 = caps[3].parse().map_err(|_| ParseError::Table(line.into()))?;
@@ -413,10 +460,7 @@ fn parse_table_line(line: &str) -> ParseResult<(String, u8, u8)> {
     }
 
     // Cash: "TableName M-max Seat #B is the button"
-    let re_cash = Regex::new(
-        r"^(.+?) (\d+)-max Seat #(\d+) is the button$"
-    ).unwrap();
-    if let Some(caps) = re_cash.captures(line) {
+    if let Some(caps) = re_table_cash().captures(line) {
         let table_name = caps[1].to_string();
         let table_size: u8 = caps[2].parse().map_err(|_| ParseError::Table(line.into()))?;
         let button_seat: u8 = caps[3].parse().map_err(|_| ParseError::Table(line.into()))?;
@@ -424,8 +468,7 @@ fn parse_table_line(line: &str) -> ParseResult<(String, u8, u8)> {
     }
 
     // Stud: "TableName M-max" (no button)
-    let re_stud = Regex::new(r"^(.+?) (\d+)-max$").unwrap();
-    if let Some(caps) = re_stud.captures(line) {
+    if let Some(caps) = re_table_stud().captures(line) {
         let table_name = caps[1].to_string();
         let table_size: u8 = caps[2].parse().map_err(|_| ParseError::Table(line.into()))?;
         return Ok((table_name, table_size, 0));
@@ -441,11 +484,7 @@ fn parse_seat_line(line: &str, game_type: &GameType) -> Option<Player> {
     }
 
     // "Seat N: NAME (STACK)[ is sitting out]"
-    let re = Regex::new(
-        r"^Seat (\d+): (.+?) \((\$?[0-9.]+)\)(?:\s+is sitting out)?$"
-    ).unwrap();
-
-    if let Some(caps) = re.captures(line) {
+    if let Some(caps) = re_seat().captures(line) {
         let seat: u8 = caps[1].parse().ok()?;
         let name = caps[2].to_string();
         let stack_str = &caps[3];
@@ -614,8 +653,7 @@ fn extract_player_name_from_summary(s: &str) -> String {
 
     // Also check for position in parens: " (something) "
     // Pattern: name might be followed by " (" for position
-    let re = Regex::new(r"^(.+?) \((button|small blind|big blind)\)").unwrap();
-    if let Some(caps) = re.captures(s) {
+    if let Some(caps) = re_summary_position().captures(s) {
         return caps[1].to_string();
     }
 
@@ -629,8 +667,7 @@ fn parse_uncalled_bet(
     currency: Currency,
 ) -> Option<Action> {
     // "Uncalled bet ($0.18) returned to NAME" or "Uncalled bet (29700.00) returned to NAME"
-    let re = Regex::new(r"^Uncalled bet \((\$?[0-9.]+)\) returned to (.+)$").unwrap();
-    if let Some(caps) = re.captures(line) {
+    if let Some(caps) = re_uncalled_bet().captures(line) {
         let amount = parse_money_or_chips(&caps[1], currency);
         let player = caps[2].trim().to_string();
         return Some(Action {
@@ -674,7 +711,7 @@ fn parse_stud_dealt_line(
         if name_part == hero {
             // For hero, take ALL cards from all bracket groups
             let mut all_cards = Vec::new();
-            for cap in Regex::new(r"\[([^\]]+)\]").unwrap().find_iter(cards_section) {
+            for cap in re_bracket_cards().find_iter(cards_section) {
                 all_cards.extend(parse_cards(cap.as_str()));
             }
             // On each street, hero gets cumulative cards. We want the latest full set.
@@ -697,7 +734,7 @@ fn parse_stud_dealt_line(
         } else {
             // For opponents, collect all visible cards across streets
             let mut visible_cards = Vec::new();
-            for cap in Regex::new(r"\[([^\]]+)\]").unwrap().find_iter(cards_section) {
+            for cap in re_bracket_cards().find_iter(cards_section) {
                 visible_cards.extend(parse_cards(cap.as_str()));
             }
             if let Some(entry) = entry {

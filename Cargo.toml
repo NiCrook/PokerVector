@@ -29,5 +29,13 @@ dirs = "5"
 toml = "0.8"
 
 [dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
 pretty_assertions = "1.4"
 tempfile = "3"
+
+[[bench]]
+name = "hotpath"
+harness = false
+
+[profile.bench]
+opt-level = 3
