@@ -218,6 +218,14 @@ impl PokerVectorMcp {
         self.tool_get_hand_history(params).await
     }
 
+    #[tool(description = "Aggregate statistics across all opponents in the player pool. Shows distributions (mean, median, P25, P75) for key stats like VPIP, PFR, 3-bet%, c-bet, etc. Filter by stakes to see 'what does the average player do at this level?' Useful for contextualizing villain stats against the pool.")]
+    async fn get_pool_stats(
+        &self,
+        Parameters(params): Parameters<GetPoolStatsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_pool_stats(params).await
+    }
+
     #[tool(description = "Compare stats side-by-side for two players. Returns both stat profiles in a single response for easy comparison.")]
     async fn compare_stats(
         &self,
@@ -412,6 +420,7 @@ impl ServerHandler for PokerVectorMcp {
                  get_preflop_chart to build a preflop hand chart by position (Hold'em only), \
                  reimport_hand to re-parse and re-embed a specific hand, \
                  get_hand_history to retrieve raw hand history text, \
+                 get_pool_stats for aggregate opponent pool statistics with distributions (mean/median/percentiles), \
                  compare_stats for side-by-side player stat comparison, \
                  count_hands for fast filtered hand counts, \
                  get_showdown_hands to see villain holdings at showdown, \

@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 
 use crate::types::*;
+use super::calculate::calculate_stats;
 use super::types::VillainSummary;
-use super::preflop::*;
-use super::cbet::cbet_analysis;
-use super::steal::steal_analysis;
-use super::postflop::wwsf_analysis;
 use super::helpers::{hero_invested, hero_collected, big_blind_size};
 
 /// List villain stats for all opponents with at least `min_hands` shared hands.
@@ -29,60 +26,17 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
         .into_iter()
         .filter(|(_, h)| h.len() as u64 >= min_hands)
         .map(|(name, player_hands)| {
-            let total = player_hands.len() as u64;
-            let mut vpip_count = 0u64;
-            let mut pfr_count = 0u64;
-            let mut postflop_bets_raises = 0u64;
-            let mut postflop_calls = 0u64;
-            let mut three_bet_opp = 0u64;
-            let mut three_bet_cnt = 0u64;
-            let mut ft3b_opp = 0u64;
-            let mut ft3b_cnt = 0u64;
-            let mut cbet_flop_opp = 0u64;
-            let mut cbet_flop_cnt = 0u64;
-            let mut ftcb_flop_opp = 0u64;
-            let mut ftcb_flop_cnt = 0u64;
-            let mut steal_opp = 0u64;
-            let mut steal_cnt = 0u64;
-            let mut wwsf_opp = 0u64;
-            let mut wwsf_cnt = 0u64;
+            // Collect owned hands for calculate_stats (needs &[Hand])
+            let owned_hands: Vec<Hand> = player_hands.iter().map(|h| (*h).clone()).collect();
+            let stats = calculate_stats(&owned_hands, &name);
+
+            // Hero profit tracking (hero's perspective against this villain)
             let mut net_profit = 0.0f64;
             let mut net_profit_bb = 0.0f64;
             let mut hands_won = 0u64;
             let mut hands_lost = 0u64;
 
             for hand in &player_hands {
-                let (is_vpip, is_pfr) = preflop_vpip_pfr(hand, &name);
-                if is_vpip { vpip_count += 1; }
-                if is_pfr { pfr_count += 1; }
-
-                let (tb_opp, tb_did) = three_bet_analysis(hand, &name);
-                if tb_opp { three_bet_opp += 1; if tb_did { three_bet_cnt += 1; } }
-
-                let (f3_opp, f3_did) = fold_to_three_bet_analysis(hand, &name);
-                if f3_opp { ft3b_opp += 1; if f3_did { ft3b_cnt += 1; } }
-
-                let cbet = cbet_analysis(hand, &name);
-                if cbet.flop.0 { cbet_flop_opp += 1; if cbet.flop.1 { cbet_flop_cnt += 1; } }
-                if cbet.fold_to_flop.0 { ftcb_flop_opp += 1; if cbet.fold_to_flop.1 { ftcb_flop_cnt += 1; } }
-
-                let steal = steal_analysis(hand, &name);
-                if steal.steal.0 { steal_opp += 1; if steal.steal.1 { steal_cnt += 1; } }
-
-                let (ww_opp, ww_did) = wwsf_analysis(hand, &name);
-                if ww_opp { wwsf_opp += 1; if ww_did { wwsf_cnt += 1; } }
-
-                for action in &hand.actions {
-                    if action.player != name { continue; }
-                    if action.street == Street::Preflop || action.street == Street::Showdown { continue; }
-                    match &action.action_type {
-                        ActionType::Bet { .. } | ActionType::Raise { .. } => postflop_bets_raises += 1,
-                        ActionType::Call { .. } => postflop_calls += 1,
-                        _ => {}
-                    }
-                }
-
-                // Hero profit tracking for hands where this villain was present
                 let invested = hero_invested(hand, hero);
                 let collected = hero_collected(hand, hero);
                 let hand_profit = collected - invested;
@@ -98,26 +52,22 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
                 }
             }
 
-            let pct = |num: u64, den: u64| -> f64 {
-                if den > 0 { num as f64 / den as f64 * 100.0 } else { 0.0 }
-            };
-
             VillainSummary {
                 name,
-                hands: total,
+                hands: stats.hands_played,
                 net_profit,
                 net_profit_bb,
                 hands_won,
                 hands_lost,
-                vpip: pct(vpip_count, total),
-                pfr: pct(pfr_count, total),
-                aggression_factor: if postflop_calls > 0 { postflop_bets_raises as f64 / postflop_calls as f64 } else if postflop_bets_raises > 0 { f64::INFINITY } else { 0.0 },
-                three_bet_pct: pct(three_bet_cnt, three_bet_opp),
-                fold_to_three_bet: pct(ft3b_cnt, ft3b_opp),
-                cbet_flop: pct(cbet_flop_cnt, cbet_flop_opp),
-                fold_to_cbet_flop: pct(ftcb_flop_cnt, ftcb_flop_opp),
-                steal_pct: pct(steal_cnt, steal_opp),
-                wwsf: pct(wwsf_cnt, wwsf_opp),
+                vpip: stats.vpip,
+                pfr: stats.pfr,
+                aggression_factor: stats.aggression_factor,
+                three_bet_pct: stats.three_bet_pct,
+                fold_to_three_bet: stats.fold_to_three_bet,
+                cbet_flop: stats.cbet_flop,
+                fold_to_cbet_flop: stats.fold_to_cbet_flop,
+                steal_pct: stats.steal_pct,
+                wwsf: stats.wwsf,
             }
         })
         .collect();

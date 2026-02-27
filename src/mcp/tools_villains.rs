@@ -275,7 +275,7 @@ impl PokerVectorMcp {
             }
         }
 
-        let response = serde_json::json!({
+        let mut response = serde_json::json!({
             "villain": villain,
             "total_hands": hands.len(),
             "hero_profit_bb": format!("{:.1}", total_profit_bb),
@@ -283,6 +283,23 @@ impl PokerVectorMcp {
             "showdown_hands": showdowns,
             "positional_breakdown": positional,
         });
+
+        // Optionally include pool stats for comparison
+        if params.compare_to_pool.unwrap_or(false) {
+            let pool_min_hands = params.pool_min_hands.unwrap_or(30);
+            // Need all hands (not just villain-filtered) for pool stats
+            let all_hands = self
+                .store
+                .scroll_hands(None)
+                .await
+                .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+            let pool = crate::stats::calculate_pool_stats(&all_hands, hero, pool_min_hands);
+            response.as_object_mut().unwrap().insert(
+                "pool_comparison".to_string(),
+                serde_json::to_value(&pool)
+                    .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?,
+            );
+        }
 
         let json = serde_json::to_string_pretty(&response)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;

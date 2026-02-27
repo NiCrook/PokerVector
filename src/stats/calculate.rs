@@ -250,7 +250,9 @@ pub fn calculate_stats(hands: &[Hand], hero: &str) -> PlayerStats {
         let hero_at_showdown = hand_reached_showdown && hero_saw_flop && !hero_folded_before_showdown(hand, hero);
         if hero_at_showdown {
             went_to_showdown_count += 1;
-            if hand.result.hero_result == HeroResult::Won {
+            let sd_invested = hero_invested(hand, hero);
+            let sd_collected = hero_collected(hand, hero);
+            if sd_collected > sd_invested {
                 won_at_showdown_count += 1;
             }
         }

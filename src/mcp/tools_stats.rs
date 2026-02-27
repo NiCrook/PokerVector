@@ -7,7 +7,8 @@ use crate::stats;
 
 use super::helpers::mcp_error;
 use super::params::{
-    BestVillainsParams, CompareStatsParams, GetStatsParams, ListVillainsParams, WorstVillainsParams,
+    BestVillainsParams, CompareStatsParams, GetPoolStatsParams, GetStatsParams,
+    ListVillainsParams, WorstVillainsParams,
 };
 use super::PokerVectorMcp;
 
@@ -217,6 +218,44 @@ impl PokerVectorMcp {
         });
 
         let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_get_pool_stats(
+        &self,
+        params: GetPoolStatsParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+        let min_hands = params.min_hands.unwrap_or(30);
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: params.betting_limit,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let pool_stats = stats::calculate_pool_stats(&hands, hero, min_hands);
+
+        let json = serde_json::to_string_pretty(&pool_stats)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }

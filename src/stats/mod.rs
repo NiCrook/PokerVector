@@ -2,6 +2,7 @@ mod calculate;
 mod cbet;
 mod helpers;
 mod limp;
+mod pool;
 mod postflop;
 mod preflop;
 mod steal;
@@ -12,6 +13,7 @@ mod test_helpers;
 
 pub use calculate::calculate_stats;
 pub(crate) use helpers::{big_blind_size, hero_collected, hero_invested};
+pub use pool::{calculate_pool_stats, PoolStats, StatDistribution};
 pub use villains::list_villains;
 
 use crate::types::*;

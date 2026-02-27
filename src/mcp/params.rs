@@ -350,6 +350,10 @@ pub struct GetVillainProfileParams {
     pub stakes: Option<String>,
     #[schemars(description = "Filter by game type: cash or tournament")]
     pub game_type: Option<String>,
+    #[schemars(description = "Include pool averages alongside villain stats for context (default false). Shows how this villain compares to the average opponent.")]
+    pub compare_to_pool: Option<bool>,
+    #[schemars(description = "Minimum hands per player for pool stats (default 30). Only used when compare_to_pool is true.")]
+    pub pool_min_hands: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -431,6 +435,26 @@ pub struct GetSizingProfileParams {
     pub game_type: Option<String>,
     #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
     pub variant: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetPoolStatsParams {
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02'). Highly recommended — pool behavior varies drastically by stakes.")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter by betting limit: no_limit, pot_limit, fixed_limit")]
+    pub betting_limit: Option<String>,
+    #[schemars(description = "Minimum hands a player must have to be included in the pool (default 30). Lower values include more players but noisier stats.")]
+    pub min_hands: Option<u64>,
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
     #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
     pub from_date: Option<String>,
     #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
