@@ -35,17 +35,6 @@ Let the user tag/annotate hands with labels ("bad call", "good bluff", "review l
 ### ~~`get_street_stats`~~ ✅
 Per-street aggression/fold frequencies. "How often does villain fold to turn barrels?" Goes deeper than the current aggregate stats.
 
-## Tournament Tools
-
-### `get_tournament_summary`
-Results for a specific tournament: finish position, buy-in, payout, ROI, key hands. The session tools are cash-only right now.
-
-### `get_tournament_stats`
-Aggregate tournament stats: ROI%, ITM%, average finish, total buy-ins vs payouts, stats by buy-in level.
-
-### `get_icm_spots`
-Find tournament hands near the bubble or final table where stack sizes made the decision ICM-sensitive.
-
 ## Opponent Modeling
 
 ### ~~`get_villain_profile`~~ ✅
