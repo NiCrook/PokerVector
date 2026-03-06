@@ -34,24 +34,24 @@ The embedding model (BGE-small-en-v1.5) downloads automatically on first run.
 
 ```bash
 # 1. Auto-detect installed poker clients and save accounts
-cargo run -- scan
+cargo run --release -- scan
 
 # 2. Import hand histories
-cargo run -- import                   # all configured accounts
-cargo run -- import ./PolarFox/       # specific directory
+cargo run --release -- import                   # all configured accounts
+cargo run --release -- import ./path/to/hands/  # specific directory
 
 # 3. Check status
-cargo run -- status
+cargo run --release -- status
 
 # 4. Start the MCP server
-cargo run -- mcp                      # hero from config
-cargo run -- mcp --hero PolarFox      # explicit hero
+cargo run --release -- mcp                      # hero from config
+cargo run --release -- mcp --hero YourUsername   # explicit hero
 ```
 
 You can also manually register an account:
 
 ```bash
-cargo run -- add-account ./path/to/hand/histories/
+cargo run --release -- add-account ./path/to/hand/histories/
 ```
 
 ## MCP Client Setup
@@ -63,7 +63,7 @@ Add PokerVector to your MCP client config. For example, in Claude Desktop's `cla
   "mcpServers": {
     "pokervector": {
       "command": "cargo",
-      "args": ["run", "--manifest-path", "/path/to/PokerVector/Cargo.toml", "--", "mcp"]
+      "args": ["run", "--release", "--manifest-path", "/path/to/PokerVector/Cargo.toml", "--", "mcp"]
     }
   }
 }
@@ -84,17 +84,101 @@ Or if you've installed the binary to your PATH:
 
 Once configured, your AI client discovers PokerVector's tools automatically.
 
-## MCP Tools
+## MCP Tools (54)
+
+### Search & Retrieval
 
 | Tool | Description |
 |------|-------------|
-| `search_hands` | Semantic or action-sequence search with filters (position, stakes, villain, pot type, result) |
+| `search_hands` | Semantic or action-sequence search with filters (position, stakes, villain, pot type, result, date range) |
 | `get_hand` | Fetch full details of a hand by ID |
+| `get_hand_history` | Return original raw hand history text |
+| `get_hand_context` | Get surrounding hands from the same table for context |
+| `search_similar_hands` | Find structurally similar hands by betting pattern |
+| `count_hands` | Count matching hands without returning data |
+| `query_hands` | Power-user raw SQL WHERE clause queries |
+
+### Stats & Analysis
+
+| Tool | Description |
+|------|-------------|
 | `get_stats` | Aggregate stats (VPIP, PFR, 3-bet%, c-bet, steal, 25+ metrics) with filters |
+| `get_pool_stats` | Player pool averages with distributions (mean, median, P25, P75) |
+| `get_multiway_stats` | Stats filtered to multiway pots (3+ to flop) |
+| `get_street_stats` | Per-street bet/raise/call/check/fold frequencies |
+| `get_range_analysis` | Starting hand distributions by position and action |
+| `get_preflop_chart` | Preflop hand chart with open/3bet/call/fold frequencies |
+| `get_board_stats` | Performance by board texture (monotone, paired, connected, etc.) |
+| `get_bankroll_graph` | Running profit/loss data points over time |
+| `get_trends` | Stats over time bucketed by day, week, or month |
+| `find_leaks` | Automated leak detection against baseline ranges |
+| `detect_tilt` | Flag sessions where play deviated from baseline |
+| `compare_stats` | Side-by-side stat comparison for two players |
+
+### Villain Tools
+
+| Tool | Description |
+|------|-------------|
 | `list_villains` | List opponents with hand counts and key stats |
+| `get_villain_profile` | Comprehensive villain report in one call |
+| `get_villain_tendencies` | How a villain reacts to specific betting lines |
+| `get_sizing_profile` | Bet sizing patterns by street and outcome |
+| `get_showdown_hands` | Hands where a villain revealed holdings |
+| `get_positional_matchups` | Hero vs villain breakdown by position |
+| `get_best_villains` | Opponents hero profits most against |
+| `get_worst_villains` | Opponents hero loses most to |
+| `get_similar_villains` | Find villains matching a stat profile |
+| `cluster_villains` | Classify opponents into archetypes (Nit, TAG, LAG, Whale, etc.) |
+
+### Session & Game Selection
+
+| Tool | Description |
+|------|-------------|
 | `list_sessions` | List detected cash game sessions |
-| `review_session` | Session review with aggregate stats and notable hands |
-| `search_similar_hands` | Find structurally similar hands by action sequence |
+| `review_session` | Session review with stats, per-table breakdown, notable hands |
+| `get_table_profitability` | Profit by stakes or table |
+
+### Spot Finding
+
+| Tool | Description |
+|------|-------------|
+| `get_bluff_candidates` | Hands where hero folded but a bluff might have worked |
+| `get_coolers` | Showdown hands where hero invested heavily and lost |
+| `get_equity_spots` | Hands where hero was all-in |
+| `get_squeeze_spots` | Squeeze-eligible spots and what hero did |
+| `get_runout_analysis` | Hero win rate on different board textures |
+| `get_runout_frequencies` | Turn/river card frequency distributions |
+
+### Tournament
+
+| Tool | Description |
+|------|-------------|
+| `get_tournament_summary` | Tournament overview: stacks, blind levels, biggest pots |
+| `get_tournament_stack_stats` | Stack and M-ratio trajectory across a tournament |
+| `get_push_fold_review` | Review decisions at low M-ratio |
+| `get_bubble_play` | Bubble play analysis: tightening vs aggression |
+| `get_effective_stacks` | Effective stack depths for significant pots |
+
+### Study & Export
+
+| Tool | Description |
+|------|-------------|
+| `quiz_hand` | Hand quiz — hides hero's action for study |
+| `get_hand_as_replayer` | Step-by-step replay with running pot/stack sizes |
+| `export_hands` | Export as CSV or raw hand history text |
+| `auto_tag_hands` | Auto-classify hands (cooler, hero call, big bluff, etc.) |
+| `tag_hand` | Add custom tags/labels to a hand |
+| `remove_tag` | Remove tags from a hand |
+| `get_tags` | Get tags applied to a hand |
+
+### Admin
+
+| Tool | Description |
+|------|-------------|
+| `watch_directory` | Import new hands from configured directories |
+| `get_last_import` | Last import info and total hand count |
+| `reimport_hand` | Re-parse and re-embed a single hand |
+| `get_database_health` | Storage diagnostics and data quality checks |
 
 ## Data Storage
 

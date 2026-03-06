@@ -18,10 +18,10 @@ cargo test --test parser_tests        # run only integration tests
 cargo run -- scan                     # auto-detect poker clients, save accounts to config
 cargo run -- add-account ./path/      # manually add an account
 cargo run -- import                   # import all configured accounts
-cargo run -- import ./PolarFox/       # import a specific directory
+cargo run -- import ./path/to/hands/   # import a specific directory
 cargo run -- status                   # show config + database info
 cargo run -- mcp                      # start MCP server, hero from config
-cargo run -- mcp --hero PolarFox      # start MCP server with explicit hero
+cargo run -- mcp --hero YourUsername   # start MCP server with explicit hero
 ```
 
 Data is stored in `~/.pokervector/data/` (LanceDB embedded database). No Docker or external services required.
@@ -42,10 +42,10 @@ Data is stored in `~/.pokervector/data/` (LanceDB embedded database). No Docker 
 - `src/storage.rs` — LanceDB wrapper. Single table `poker_hands` with named vector columns `summary` + `action` (384-dim FixedSizeList<Float32>). Data at `~/.pokervector/data/`. `VectorStore::new()` connects and opens/creates the table in one step — fully initialized on return, no separate setup call needed. Handles upsert via merge-insert (`HandEmbeddings`), vector search by column name, SQL filter queries, scroll, dedup. Stores full `Hand` as JSON in `hand_json` column.
 - `src/search.rs` — Search with SQL WHERE filters. `build_filter()` returns `Option<String>`. `SearchMode` enum (Semantic/Action) routes to the appropriate named vector column. `search_similar_actions()` finds structurally similar hands by ID.
 - `src/sessions.rs` — Session detection from `Vec<Hand>`, cash games only. Groups hands into `TableSession`s (5-min gap) and merges into multi-table `Session`s (30-min gap). `SessionReview` with aggregate stats and `NotableHand`s (biggest wins/losses).
-- `src/stats.rs` — 25+ aggregate stats (VPIP, PFR, 3-bet%, c-bet, steal, etc.) computed in-memory from `Vec<Hand>`. Also `list_villains`.
-- `src/mcp.rs` — MCP server via `rmcp` 0.15. `PokerVectorMcp` struct with `#[tool_router]`/`#[tool_handler]` macros. Seven tools: `search_hands` (with `search_mode` param), `get_hand`, `get_stats`, `list_villains`, `list_sessions`, `review_session`, `search_similar_hands`. Uses `Parameters<T>` wrapper for tool arguments.
+- `src/stats/` — 25+ aggregate stats (VPIP, PFR, 3-bet%, c-bet, steal, etc.) computed in-memory from `Vec<Hand>`. Submodules: `preflop`, `postflop`, `cbet`, `steal`, `limp`, `pool`, `villains`. Player-agnostic — works for hero or any villain.
+- `src/mcp/` — MCP server via `rmcp` 0.15. `PokerVectorMcp` struct with `#[tool_router]`/`#[tool_handler]` macros. 54 tools across submodules: `tools_search`, `tools_hands`, `tools_stats`, `tools_villains`, `tools_sessions`, `tools_spots`, `tools_export`, `tools_meta`, `tools_advanced`, `tools_tournament`. Analysis logic in `analysis/` submodules. Uses `Parameters<T>` wrapper for tool arguments.
 - `src/config.rs` — Persistent config at `~/.pokervector/config.toml`. Structs: `SiteKind`, `Account`, `Config`. Load/save/merge logic. `data_dir()` returns `~/.pokervector/data/`.
-- `src/scanner.rs` — Auto-detection of installed poker clients. ACR scanner checks `C:\AmericasCardroom\handHistory\` for account subdirectories. `scan_all()` aggregates all site scanners.
+- `src/scanner.rs` — Auto-detection of installed poker clients. ACR scanner checks the default ACR install path for account subdirectories. `scan_all()` aggregates all site scanners.
 - `src/main.rs` — CLI via clap: `import`, `status`, `mcp`, `scan`, `add-account` subcommands. `import` with no path imports all configured accounts. `mcp` with no `--hero` uses first configured account. MCP mode logs to stderr (stdout is protocol).
 
 ## Config System
@@ -55,8 +55,8 @@ Config lives at `~/.pokervector/config.toml`. Created by `scan` or `add-account`
 ```toml
 [[accounts]]
 site = "acr"
-hero = "PolarFox"
-path = "C:\\AmericasCardroom\\handHistory\\PolarFox"
+hero = "YourUsername"
+path = "/path/to/hand/histories/YourUsername"
 manual = false
 ```
 
@@ -103,4 +103,4 @@ The `message` should read as: "this commit will {message}".
 
 ## Test Data
 
-`PolarFox/` contains 18 real ACR hand history files covering cash games, tournaments, antes, side pots, split pots, multi-word player names, sitting out, all-in scenarios, Omaha H/L, 5-Card Omaha, 7-Card Stud H/L, and bomb pots. Test fixtures in `tests/fixtures/` are extracted from these files.
+`tests/fixtures/` contains sample ACR hand history files covering cash games, tournaments, antes, side pots, split pots, multi-word player names, sitting out, all-in scenarios, Omaha H/L, 5-Card Omaha, 7-Card Stud H/L, and bomb pots.
