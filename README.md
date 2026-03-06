@@ -192,4 +192,4 @@ The `tokenizers` crate must use `fancy-regex` (not `onig`) and disable `esaxx_fa
 
 ## License
 
-AGPL-3.0 — see [LICENSE](LICENSE) for details.
+MIT OR Apache-2.0 — see [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) for details.
