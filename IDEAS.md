@@ -51,8 +51,8 @@ How a villain reacts to specific lines: "when hero c-bets and villain calls flop
 ### ~~`get_sizing_profile`~~ ✅
 Analyze bet sizing patterns for a player. "Villain bets 1/3 pot with draws and 2/3 with value" — return the distribution of bet sizes by street and outcome.
 
-### `get_runout_analysis`
-Given a set of hands (by filter), show how often hero wins on different board textures (monotone, paired, connected, etc.).
+### ~~`get_runout_analysis`~~ ✅
+~~Given a set of hands (by filter), show how often hero wins on different board textures (monotone, paired, connected, etc.).~~
 
 ### ~~`detect_tilt`~~ ✅
 Flag sessions or stretches where hero's play deviated from their baseline (VPIP spike, unusual aggression, etc.) after big losses.
@@ -100,8 +100,8 @@ Dedup count, hands missing embeddings, orphaned records, storage size. Maintenan
 ### ~~`get_board_stats`~~ ✅
 How does hero perform on different board textures? Monotone, paired, connected, dry, wet. Breakdown by street and action taken.
 
-### `get_runout_frequencies`
-What turn/river cards show up most often after hero c-bets flop and gets called? Not about hero's play — about what boards the database actually contains.
+### ~~`get_runout_frequencies`~~ ✅
+~~What turn/river cards show up most often after hero c-bets flop and gets called? Not about hero's play — about what boards the database actually contains.~~
 
 ## Multiway Analysis
 

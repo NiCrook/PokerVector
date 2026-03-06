@@ -596,6 +596,44 @@ pub struct GetTagsParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetRunoutAnalysisParams {
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
+    pub position: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetRunoutFrequenciesParams {
+    #[schemars(description = "Which street to analyze: 'turn' (default) or 'river'")]
+    pub street: Option<String>,
+    #[schemars(description = "Hero name override (defaults to configured hero)")]
+    pub hero: Option<String>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Filter by variant: holdem, omaha, five_card_omaha, seven_card_stud")]
+    pub variant: Option<String>,
+    #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
+    pub position: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetTrendsParams {
     #[schemars(description = "Time bucket size: 'day', 'week' (default), or 'month'")]
     pub period: Option<String>,

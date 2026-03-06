@@ -461,6 +461,22 @@ impl PokerVectorMcp {
         self.tool_get_bubble_play(params).await
     }
 
+    #[tool(description = "Analyze hero's win rate on different final board textures (monotone, two-tone, rainbow, paired, connected, high, low, flush-completing). Groups by the full board texture combo and shows hands, win%, and bb/100 for each.")]
+    async fn get_runout_analysis(
+        &self,
+        Parameters(params): Parameters<GetRunoutAnalysisParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_runout_analysis(params).await
+    }
+
+    #[tool(description = "Show turn/river card frequency distributions. What ranks and card types (overcard, pairs_board, flush_completing, broadway, low) appear most often? Includes a subset for 'after hero c-bets flop and gets called'. Useful for studying what runouts you actually face.")]
+    async fn get_runout_frequencies(
+        &self,
+        Parameters(params): Parameters<GetRunoutFrequenciesParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_runout_frequencies(params).await
+    }
+
     #[tool(description = "Show effective stack depths for significant tournament pots. Returns hero stack, villain effective stack, and effective stack for each hand with pot >= min_pot_bb.")]
     async fn get_effective_stacks(
         &self,
@@ -531,6 +547,8 @@ impl ServerHandler for PokerVectorMcp {
                  get_villain_tendencies for action-reaction patterns against a specific villain, \
                  get_range_analysis for starting hand distribution by position, \
                  get_board_stats for hero performance by board texture (monotone/paired/wet/dry/etc.), \
+                 get_runout_analysis for win rate by final board texture combo, \
+                 get_runout_frequencies for turn/river card rank and type distributions, \
                  get_bluff_candidates for missed bluff opportunities (postflop folds where a raise might have worked), \
                  get_database_health for database diagnostics, \
                  get_tournament_summary for tournament overviews, \

@@ -10,8 +10,8 @@ use super::analysis;
 use super::helpers::{combo_label, mcp_error};
 use super::params::{
     DetectTiltParams, FindLeaksParams, GetBoardStatsParams, GetPreflopChartParams,
-    GetRangeAnalysisParams, GetSizingProfileParams, GetStreetStatsParams, GetTrendsParams,
-    TableProfitabilityParams,
+    GetRangeAnalysisParams, GetRunoutAnalysisParams, GetRunoutFrequenciesParams,
+    GetSizingProfileParams, GetStreetStatsParams, GetTrendsParams, TableProfitabilityParams,
 };
 use super::PokerVectorMcp;
 
@@ -662,6 +662,101 @@ impl PokerVectorMcp {
         });
 
         let json = serde_json::to_string_pretty(&results)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_get_runout_analysis(
+        &self,
+        params: GetRunoutAnalysisParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: params.position,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: None,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+            tag: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        if hands.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "total_hands": 0,
+                    "message": "No hands found matching filters.",
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        let response = analysis::get_runout_analysis(&hands, hero);
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_get_runout_frequencies(
+        &self,
+        params: GetRunoutFrequenciesParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let hero = params.hero.as_deref().unwrap_or(&self.hero);
+        let street = params.street.as_deref().unwrap_or("turn");
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: params.position,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: params.variant,
+            betting_limit: None,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+            tag: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        if hands.is_empty() {
+            return Ok(CallToolResult::success(vec![Content::text(
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "total_hands": 0,
+                    "message": "No hands found matching filters.",
+                }))
+                .unwrap(),
+            )]));
+        }
+
+        let response = analysis::get_runout_frequencies_analysis(&hands, hero, street);
+        let json = serde_json::to_string_pretty(&response)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
