@@ -12,7 +12,7 @@ mod villains;
 mod test_helpers;
 
 pub use calculate::calculate_stats;
-pub(crate) use helpers::{big_blind_size, hero_collected, hero_invested};
+pub(crate) use helpers::{big_blind_size, hero_collected, hero_invested, position_order_pos};
 pub use pool::{calculate_pool_stats, PoolStats, StatDistribution};
 pub use villains::list_villains;
 

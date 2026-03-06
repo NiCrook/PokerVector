@@ -9,8 +9,8 @@ use crate::types::{ActionType, HeroResult, Street};
 
 use super::helpers::mcp_error;
 use super::params::{
-    AutoTagHandsParams, GetCoolersParams, GetEquitySpotsParams, GetMultiwayStatsParams,
-    GetSqueezeSpotsParams,
+    AutoTagHandsParams, GetBluffCandidatesParams, GetCoolersParams, GetEquitySpotsParams,
+    GetMultiwayStatsParams, GetSqueezeSpotsParams,
 };
 use super::PokerVectorMcp;
 
@@ -546,6 +546,239 @@ impl PokerVectorMcp {
             "squeezed": squeezed,
             "called": called,
             "folded": folded,
+            "hands": results,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_get_bluff_candidates(
+        &self,
+        params: GetBluffCandidatesParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let min_pot_bb = params.min_pot_bb.unwrap_or(3.0);
+        let limit = params.limit.unwrap_or(20) as usize;
+        let hero = &self.hero;
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: Some("folded".to_string()),
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+            offset: None,
+            from_date: None,
+            to_date: None,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let mut candidates: Vec<(u32, serde_json::Value)> = Vec::new();
+
+        for hand in &hands {
+            let bb = stats::big_blind_size(hand);
+            if bb <= 0.0 {
+                continue;
+            }
+
+            // Find the street hero folded on and what action hero was facing
+            let fold_action = match hand.actions.iter().find(|a| {
+                a.player.as_str() == hero && matches!(a.action_type, ActionType::Fold)
+            }) {
+                Some(a) => a,
+                None => continue,
+            };
+
+            let fold_street = fold_action.street;
+            // Only postflop folds
+            if matches!(fold_street, Street::Preflop | Street::ThirdStreet) {
+                continue;
+            }
+
+            // Track pot and find the villain bet hero was facing
+            let mut pot = 0.0;
+            let mut villain_bet_amount = 0.0;
+            let mut villain_name = String::new();
+            let mut active_on_street = HashSet::new();
+
+            for a in &hand.actions {
+                if a.street == fold_street {
+                    active_on_street.insert(a.player.as_str());
+                }
+
+                // Stop when we reach hero's fold
+                if std::ptr::eq(a, fold_action) {
+                    break;
+                }
+
+                match &a.action_type {
+                    ActionType::PostSmallBlind { amount, .. }
+                    | ActionType::PostBigBlind { amount, .. }
+                    | ActionType::PostAnte { amount }
+                    | ActionType::PostBlind { amount }
+                    | ActionType::BringsIn { amount }
+                    | ActionType::Call { amount, .. }
+                    | ActionType::Bet { amount, .. } => {
+                        pot += amount.amount;
+                        // Track last bet/raise on fold street facing hero
+                        if a.street == fold_street
+                            && a.player.as_str() != hero
+                            && matches!(
+                                a.action_type,
+                                ActionType::Bet { .. } | ActionType::Raise { .. }
+                            )
+                        {
+                            villain_bet_amount = amount.amount;
+                            villain_name = a.player.clone();
+                        }
+                    }
+                    ActionType::Raise { to, .. } => {
+                        pot += to.amount;
+                        if a.street == fold_street && a.player.as_str() != hero {
+                            villain_bet_amount = to.amount;
+                            villain_name = a.player.clone();
+                        }
+                    }
+                    ActionType::UncalledBet { amount } => {
+                        pot -= amount.amount;
+                    }
+                    _ => {}
+                }
+            }
+
+            let pot_bb = pot / bb;
+            if pot_bb < min_pot_bb {
+                continue;
+            }
+
+            if villain_bet_amount <= 0.0 {
+                continue;
+            }
+
+            // Compute bluff signals
+            let mut score: u32 = 0;
+            let mut reasons: Vec<&str> = Vec::new();
+
+            // 1. Villain bet small (< 50% pot before the bet)
+            let pot_before_bet = pot - villain_bet_amount;
+            let bet_fraction = if pot_before_bet > 0.0 {
+                villain_bet_amount / pot_before_bet
+            } else {
+                1.0
+            };
+            if bet_fraction < 0.5 {
+                score += 3;
+                reasons.push("villain bet small (< 50% pot)");
+            } else if bet_fraction < 0.75 {
+                score += 1;
+                reasons.push("villain bet medium (50-75% pot)");
+            }
+
+            // 2. Heads-up on that street
+            let players_on_street = active_on_street.len();
+            if players_on_street <= 2 {
+                score += 2;
+                reasons.push("heads-up on this street");
+            }
+
+            // 3. Hero was in position
+            if !villain_name.is_empty() {
+                let hero_pos = hand.hero_position;
+                let villain_pos = hand
+                    .players
+                    .iter()
+                    .find(|p| p.name == villain_name)
+                    .and_then(|p| p.position);
+                if let (Some(hp), Some(vp)) = (hero_pos, villain_pos) {
+                    if crate::stats::position_order_pos(hp) > crate::stats::position_order_pos(vp) {
+                        score += 2;
+                        reasons.push("hero was in position");
+                    }
+                }
+            }
+
+            // 4. Late street fold (turn/river folds are bigger missed opportunities)
+            if matches!(fold_street, Street::River | Street::SeventhStreet) {
+                score += 1;
+                reasons.push("folded on the river");
+            }
+
+            // Only include if at least 2 signals triggered
+            if score < 2 {
+                continue;
+            }
+
+            let cards: String = hand
+                .hero_cards
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let board: String = hand
+                .board
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            candidates.push((
+                score,
+                serde_json::json!({
+                    "hand_id": hand.id,
+                    "stakes": format!("{}", hand.game_type),
+                    "hero_position": hand.hero_position.map(|p| p.to_string()),
+                    "hero_cards": cards,
+                    "board": board,
+                    "fold_street": format!("{}", fold_street),
+                    "villain": villain_name,
+                    "villain_bet_fraction": format!("{:.0}%", bet_fraction * 100.0),
+                    "pot_bb_at_fold": format!("{:.1}", pot_bb),
+                    "players_on_street": players_on_street,
+                    "bluff_score": score,
+                    "reasons": reasons,
+                }),
+            ));
+        }
+
+        // Sort by score descending, then by pot size descending
+        candidates.sort_by(|a, b| {
+            b.0.cmp(&a.0).then_with(|| {
+                let pot_a: f64 = a.1["pot_bb_at_fold"]
+                    .as_str()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0.0);
+                let pot_b: f64 = b.1["pot_bb_at_fold"]
+                    .as_str()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0.0);
+                pot_b
+                    .partial_cmp(&pot_a)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+        });
+
+        let results: Vec<serde_json::Value> = candidates
+            .into_iter()
+            .take(limit)
+            .map(|(_, v)| v)
+            .collect();
+
+        let response = serde_json::json!({
+            "total_candidates": results.len(),
+            "min_pot_bb": min_pot_bb,
             "hands": results,
         });
 
