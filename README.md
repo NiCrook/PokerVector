@@ -10,6 +10,8 @@ PokerVector parses, embeds, and indexes your hands locally. You bring your own L
 - Cash games and tournaments
 - No Limit, Pot Limit, Fixed Limit
 
+> **Note on tournaments:** ACR hand histories do not include buy-in, payout, or finish position data. Tournament tools focus on in-game analysis (stack trajectories, push/fold decisions, bubble play) rather than results tracking like ROI or ITM%.
+
 ## Prerequisites
 
 - **Rust** (stable toolchain)
