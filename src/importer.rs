@@ -49,16 +49,13 @@ pub async fn import_directory(
         });
     }
 
-    // Phase 2: Dedup — filter out already-imported hands
-    let mut skipped = 0u64;
-    let mut new_hands: Vec<&types::Hand> = Vec::new();
-    for hand in &all_hands {
-        if store.hand_exists(hand.id).await? {
-            skipped += 1;
-        } else {
-            new_hands.push(hand);
-        }
-    }
+    // Phase 2: Dedup — filter out already-imported hands (single batch query)
+    let all_ids: Vec<u64> = all_hands.iter().map(|h| h.id).collect();
+    let existing_ids = store.get_existing_ids(&all_ids).await?;
+    let skipped = existing_ids.len() as u64;
+    let new_hands: Vec<&types::Hand> = all_hands.iter()
+        .filter(|h| !existing_ids.contains(&h.id))
+        .collect();
 
     if new_hands.is_empty() {
         return Ok(ImportResult {

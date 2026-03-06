@@ -556,6 +556,50 @@ impl VectorStore {
         Ok(count > 0)
     }
 
+    /// Check which of the given IDs already exist in the database.
+    /// Returns a HashSet of existing IDs. Single query instead of N individual checks.
+    pub async fn get_existing_ids(&self, ids: &[u64]) -> Result<std::collections::HashSet<u64>> {
+        use std::collections::HashSet;
+
+        if ids.is_empty() {
+            return Ok(HashSet::new());
+        }
+
+        let table = self.table();
+
+        // Query in chunks to avoid overly long SQL IN clauses
+        let mut existing = HashSet::new();
+        for chunk in ids.chunks(500) {
+            let id_list = chunk.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+            let filter = format!("id IN ({})", id_list);
+
+            let batches: Vec<RecordBatch> = table
+                .query()
+                .only_if(filter)
+                .select(Select::columns(&["id"]))
+                .execute()
+                .await
+                .context("Failed to query existing IDs")?
+                .try_collect()
+                .await
+                .context("Failed to collect existing IDs")?;
+
+            for batch in &batches {
+                let id_col = batch
+                    .column_by_name("id")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<arrow_array::UInt64Array>()
+                    .unwrap();
+                for i in 0..batch.num_rows() {
+                    existing.insert(id_col.value(i));
+                }
+            }
+        }
+
+        Ok(existing)
+    }
+
     pub async fn count(&self) -> Result<u64> {
         let table = self.table();
 

@@ -54,9 +54,23 @@ fn main() {
     let jsons: Vec<String> = hands.iter().map(|h| serde_json::to_string(h).unwrap()).collect();
     let json_kb: f64 = jsons.iter().map(|j| j.len()).sum::<usize>() as f64 / 1024.0;
 
+    // Measure raw_text contribution
+    let raw_text_bytes: usize = hands.iter().map(|h| h.raw_text.len()).sum();
+    let raw_text_kb = raw_text_bytes as f64 / 1024.0;
+
+    // Serialize without raw_text to measure savings
+    let jsons_no_raw: Vec<String> = hands.iter().map(|h| {
+        let mut h2 = h.clone();
+        h2.raw_text = String::new();
+        serde_json::to_string(&h2).unwrap()
+    }).collect();
+    let json_no_raw_kb: f64 = jsons_no_raw.iter().map(|j| j.len()).sum::<usize>() as f64 / 1024.0;
+
     println!("=== PokerVector Hot Path Profile ===");
     println!("  {} raw hand texts, {} parsed hands", raw_hands.len(), hands.len());
-    println!("  {json_kb:.1} KB total JSON");
+    println!("  {json_kb:.1} KB total JSON ({raw_text_kb:.1} KB raw_text, {:.1} KB without)",
+             json_no_raw_kb);
+    println!("  raw_text is {:.0}% of JSON payload", (1.0 - json_no_raw_kb / json_kb) * 100.0);
     println!();
 
     // 1. split_hands
@@ -94,19 +108,59 @@ fn main() {
     });
 
     // 7. JSON deserialize (all hands) — audit items 4, 7
-    time("json_deser (all)", ITERS, || {
+    time("json_deser (full)", ITERS, || {
         for j in &jsons {
             std::hint::black_box(serde_json::from_str::<Hand>(j).unwrap());
         }
     });
 
+    // 7b. JSON deserialize without raw_text — potential savings from stripping
+    time("json_deser (no raw_text)", ITERS, || {
+        for j in &jsons_no_raw {
+            std::hint::black_box(serde_json::from_str::<Hand>(j).unwrap());
+        }
+    });
+
     // 8. JSON deser + calculate_stats (simulates full MCP get_stats path)
-    time("json_deser + stats", ITERS, || {
+    time("deser+stats (full)", ITERS, || {
         let deserialized: Vec<Hand> = jsons.iter()
             .map(|j| serde_json::from_str(j).unwrap())
             .collect();
         std::hint::black_box(stats::calculate_stats(&deserialized, HERO));
     });
+
+    time("deser+stats (no raw_text)", ITERS, || {
+        let deserialized: Vec<Hand> = jsons_no_raw.iter()
+            .map(|j| serde_json::from_str(j).unwrap())
+            .collect();
+        std::hint::black_box(stats::calculate_stats(&deserialized, HERO));
+    });
+
+    // 8b. Batch dedup simulation — N individual checks vs 1 batch
+    {
+        use std::collections::HashSet;
+        let all_ids: Vec<u64> = hands.iter().map(|h| h.id).collect();
+        // Simulate existing DB with half the IDs
+        let existing: HashSet<u64> = all_ids.iter().take(all_ids.len() / 2).copied().collect();
+
+        time("dedup (per-hand loop)", ITERS, || {
+            let mut new = Vec::new();
+            for id in &all_ids {
+                if !existing.contains(id) {
+                    new.push(*id);
+                }
+            }
+            std::hint::black_box(new);
+        });
+
+        // The real cost is the DB round-trip, not the HashSet lookup.
+        // This measures the overhead of building the IN(...) query string
+        time("dedup (batch IN query)", ITERS, || {
+            let id_list: String = all_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+            let query = format!("id IN ({})", id_list);
+            std::hint::black_box(query);
+        });
+    }
 
     // 9. Embedding (ONNX inference) — the import bottleneck
     let summaries: Vec<String> = hands.iter().map(|h| summarizer::summarize(h)).collect();
