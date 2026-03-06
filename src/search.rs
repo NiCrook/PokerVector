@@ -25,6 +25,7 @@ pub struct SearchParams {
     pub offset: Option<u64>,
     pub from_date: Option<String>,
     pub to_date: Option<String>,
+    pub tag: Option<String>,
 }
 
 fn sanitize(value: &str) -> String {
@@ -64,6 +65,9 @@ pub fn build_filter(params: &SearchParams) -> Option<String> {
     }
     if let Some(ref to) = params.to_date {
         conditions.push(format!("timestamp <= '{}'", sanitize(to)));
+    }
+    if let Some(ref tag) = params.tag {
+        conditions.push(format!("tags LIKE '%,{},%'", sanitize(tag)));
     }
 
     if conditions.is_empty() {
@@ -158,6 +162,7 @@ mod tests {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         assert!(build_filter(&params).is_none());
     }
@@ -179,6 +184,7 @@ mod tests {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         let filter = build_filter(&params);
         assert_eq!(filter, Some("hero_position = 'BTN'".to_string()));
@@ -201,6 +207,7 @@ mod tests {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         let filter = build_filter(&params).unwrap();
         assert!(filter.contains("hero_position = 'BTN'"));
@@ -228,6 +235,7 @@ mod tests {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         let filter = build_filter(&params).unwrap();
         assert!(filter.contains("O''Brien"));
@@ -250,6 +258,7 @@ mod tests {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         let filter = build_filter(&params).unwrap();
         assert_eq!(filter, "opponent_names LIKE '%,Fish,%'");

@@ -33,6 +33,7 @@ impl PokerVectorMcp {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -139,6 +140,7 @@ impl PokerVectorMcp {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         let filter = search::build_filter(&filter_params);
 
@@ -232,6 +234,7 @@ impl PokerVectorMcp {
             offset: None,
             from_date: None,
             to_date: None,
+            tag: None,
         };
         let filter = search::build_filter(&filter_params);
 

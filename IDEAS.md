@@ -9,7 +9,7 @@ Return the original raw hand history text for a hand ID. Useful when the LLM nee
 Takes two player names (or hero vs. a villain) and returns a side-by-side stat comparison. Right now the LLM has to call `get_stats` twice and diff them itself.
 
 ### ~~`get_range_analysis`~~ ✅
-Given filters (position, pot type, action taken), return the distribution of starting hands the hero/villain played. E.g. "what hands does PolarFox open from the CO?" Returns a frequency table grouped by hand category (pocket pairs, suited broadways, etc.).
+Given filters (position, pot type, action taken), return the distribution of starting hands the hero/villain played. E.g. "what hands does TestHero open from the CO?" Returns a frequency table grouped by hand category (pocket pairs, suited broadways, etc.).
 
 ### ~~`get_trends`~~ ✅
 Winrate/stats over time (e.g. by week or by session). Lets the LLM answer "am I improving?" or "how has my 3-bet% changed over the last month?"
@@ -26,11 +26,11 @@ Find hands where hero was all-in or facing a big decision, and return the board/
 ### ~~`get_positional_matchups`~~ ✅
 Hero vs. villain broken down by relative position (IP vs OOP). "How do I do against villain X when I'm out of position?"
 
-### `get_bluff_candidates`
-Find hands where hero folded but the action line suggests a bluff might have worked (e.g. villain bet small on scary boards, low aggression villain).
+### ~~`get_bluff_candidates`~~ ✅
+~~Find hands where hero folded but the action line suggests a bluff might have worked (e.g. villain bet small on scary boards, low aggression villain).~~
 
-### `tag_hand`
-Let the user tag/annotate hands with labels ("bad call", "good bluff", "review later") that persist in the DB. Then `search_hands` can filter by tag.
+### ~~`tag_hand`~~ ✅
+~~Let the user tag/annotate hands with labels ("bad call", "good bluff", "review later") that persist in the DB. Then `search_hands` can filter by tag.~~
 
 ### ~~`get_street_stats`~~ ✅
 Per-street aggression/fold frequencies. "How often does villain fold to turn barrels?" Goes deeper than the current aggregate stats.
@@ -43,8 +43,8 @@ A single comprehensive tool that combines stats, showdown hands, sizing tendenci
 ### ~~`get_villain_tendencies`~~ ✅
 How a villain reacts to specific lines: "when hero c-bets and villain calls flop then faces a turn barrel, what does villain do?" Action-reaction sequences.
 
-### `cluster_villains`
-Group villains by play style using their stat profiles (nit, TAG, LAG, fish, maniac). Uses the action embeddings to find similarity.
+### ~~`cluster_villains`~~ ✅
+~~Group villains by play style using their stat profiles (nit, TAG, LAG, fish, maniac). Rule-based classification on VPIP/PFR/AF thresholds.~~
 
 ## Multi-Hand Pattern Tools
 
@@ -191,10 +191,29 @@ Add an `offset` param so the LLM can page through results instead of being cappe
 - Consider caching per-player stat snapshots in LanceDB, or computing incrementally on import
 - For v1, compute on-the-fly is fine — most users have <50k hands and <500 unique opponents
 
-## MCP Protocol Expansion
+## ~~Tournament Analysis~~ ✅
 
-### Resources
-Expose hero stats and session list as MCP resources (not just tools), so the client can pull them into context automatically without tool calls.
+~~ACR hand histories don't include buy-in/payout data, so ROI/profit tracking and precise ICM aren't possible. But stack sizes, blind levels, and antes are all present — plenty for in-game strategic analysis.~~
 
-### Prompts
-Predefined prompt templates like "Review my last session", "Analyze villain X", "Find my biggest leaks" that guide the LLM.
+### ~~`get_tournament_stack_stats`~~ ✅
+~~Stack-in-BB and M-ratio for hero across hands in a tournament. Track stack trajectory, identify when hero was in push/fold territory, and spot inflection points (double-ups, bad beats).~~
+
+### ~~`get_push_fold_review`~~ ✅
+~~Find hands where hero's M was low enough for push/fold play (M < 10). Show what hero actually did vs. standard push/fold ranges. "Are you shoving wide enough at low M?"~~
+
+### ~~`get_tournament_summary`~~ ✅
+~~Per-tournament overview: hands played, starting/ending stack, blind levels encountered, stack trajectory, biggest pots, bustout hand (if present).~~
+
+### ~~`get_bubble_play`~~ ✅
+~~Analyze hero's play when short-stacked or at critical blind levels. Did hero tighten up too much? Did they miss steal opportunities? Requires heuristic bubble detection (high blind levels + multiple short stacks).~~
+
+### ~~`get_effective_stacks`~~ ✅
+~~Show effective stack depths (in BB) for hero's key hands. Useful for studying whether hero adjusted sizing for shallow/deep stack play.~~
+
+## ~~MCP Protocol Expansion~~ ✅
+
+### ~~Resources~~ ✅
+~~Expose hero stats and database info as MCP resources, so the client can pull them into context automatically without tool calls.~~
+
+### ~~Prompts~~ ✅
+~~Predefined prompt templates: "Review my last session", "Analyze villain X", "Find my biggest leaks" that guide the LLM.~~

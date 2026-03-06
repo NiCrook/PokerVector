@@ -9,6 +9,7 @@ use arrow_array::{
 use arrow_schema::{DataType, Field, Schema};
 use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase, Select};
+use lancedb::table::NewColumnTransform;
 use lancedb::{Connection, Table as LanceTable};
 
 use crate::stats::classify_pot_type;
@@ -65,6 +66,7 @@ fn table_schema() -> Arc<Schema> {
         Field::new("opponent_names", DataType::Utf8, false),
         Field::new("tournament_id", DataType::UInt64, false),
         Field::new("pot_amount", DataType::Float64, false),
+        Field::new("tags", DataType::Utf8, false),
         Field::new(
             "summary",
             DataType::FixedSizeList(
@@ -226,6 +228,7 @@ fn build_record_batch(
         .iter()
         .map(|h| h.pot.map(|p| p.amount).unwrap_or(0.0))
         .collect();
+    let tags: Vec<&str> = hands.iter().map(|_| "").collect();
 
     // Build embedding vectors
     let summary_vecs: Vec<Option<Vec<Option<f32>>>> = embeddings
@@ -285,6 +288,7 @@ fn build_record_batch(
             )),
             Arc::new(UInt64Array::from(tournament_ids)),
             Arc::new(Float64Array::from(pot_amounts)),
+            Arc::new(StringArray::from(tags)),
             Arc::new(
                 FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
                     summary_vecs,
@@ -328,6 +332,24 @@ impl VectorStore {
                 .await
                 .context("Failed to create table")?
         };
+
+        // Migrate: add tags column if missing (existing tables won't have it)
+        let schema = table
+            .schema()
+            .await
+            .context("Failed to get table schema")?;
+        if schema.field_with_name("tags").is_err() {
+            table
+                .add_columns(
+                    NewColumnTransform::SqlExpressions(vec![(
+                        "tags".to_string(),
+                        "''".to_string(),
+                    )]),
+                    None,
+                )
+                .await
+                .context("Failed to add tags column")?;
+        }
 
         Ok(Self {
             db,
@@ -584,6 +606,49 @@ impl VectorStore {
             .context("Failed to deserialize hand JSON")?;
 
         Ok(Some(hand))
+    }
+
+    pub async fn get_tags(&self, hand_id: u64) -> Result<Option<String>> {
+        let table = self.table();
+
+        let batches: Vec<RecordBatch> = table
+            .query()
+            .only_if(format!("id = {}", hand_id))
+            .select(Select::columns(&["tags"]))
+            .limit(1)
+            .execute()
+            .await
+            .context("Failed to query tags")?
+            .try_collect()
+            .await
+            .context("Failed to collect tags")?;
+
+        if batches.is_empty() || batches[0].num_rows() == 0 {
+            return Ok(None);
+        }
+
+        let tags_col = batches[0]
+            .column_by_name("tags")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+
+        Ok(Some(tags_col.value(0).to_string()))
+    }
+
+    pub async fn update_tags(&self, hand_id: u64, tags: &str) -> Result<()> {
+        let table = self.table();
+
+        table
+            .update()
+            .only_if(format!("id = {}", hand_id))
+            .column("tags", format!("'{}'", tags.replace('\'', "''")))
+            .execute()
+            .await
+            .context("Failed to update tags")?;
+
+        Ok(())
     }
 
     pub async fn scroll_hands(&self, filter: Option<String>) -> Result<Vec<Hand>> {

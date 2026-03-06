@@ -31,6 +31,7 @@ impl PokerVectorMcp {
             offset: params.offset,
             from_date: params.from_date,
             to_date: params.to_date,
+            tag: params.tag,
         };
         let results = search::search_hands(&self.store, &mut *embedder, search_params)
             .await

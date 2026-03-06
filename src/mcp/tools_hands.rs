@@ -9,7 +9,7 @@ use crate::types::{ActionType, Street};
 use super::helpers::mcp_error;
 use super::params::{
     GetHandAsReplayerParams, GetHandContextParams, GetHandHistoryParams, GetHandParams,
-    QuizHandParams,
+    GetTagsParams, QuizHandParams, RemoveTagParams, TagHandParams,
 };
 use super::PokerVectorMcp;
 
@@ -246,6 +246,7 @@ impl PokerVectorMcp {
                 offset: None,
                 from_date: None,
                 to_date: None,
+                tag: None,
             };
             let filter = search::build_filter(&filter_params);
             let hands = self
@@ -542,6 +543,183 @@ impl PokerVectorMcp {
             "hands": context,
         });
 
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_tag_hand(
+        &self,
+        params: TagHandParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        // Verify hand exists
+        let exists = self
+            .store
+            .hand_exists(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to check hand: {}", e)))?;
+        if !exists {
+            return Ok(CallToolResult::success(vec![Content::text(format!(
+                "Hand {} not found",
+                params.hand_id
+            ))]));
+        }
+
+        // Get current tags
+        let current = self
+            .store
+            .get_tags(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to get tags: {}", e)))?
+            .unwrap_or_default();
+
+        // Parse existing tags from sentinel format
+        let mut tag_set: Vec<String> = if current.is_empty() {
+            Vec::new()
+        } else {
+            current
+                .trim_matches(',')
+                .split(',')
+                .map(|s| s.to_string())
+                .collect()
+        };
+
+        // Add new tags (deduplicate)
+        let mut added = Vec::new();
+        for tag in &params.tags {
+            let tag = tag.trim().to_lowercase();
+            if !tag.is_empty() && !tag_set.iter().any(|t| t == &tag) {
+                tag_set.push(tag.clone());
+                added.push(tag);
+            }
+        }
+
+        // Store in sentinel format: ,tag1,tag2,
+        let new_tags = if tag_set.is_empty() {
+            String::new()
+        } else {
+            format!(",{},", tag_set.join(","))
+        };
+
+        self.store
+            .update_tags(params.hand_id, &new_tags)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to update tags: {}", e)))?;
+
+        let response = serde_json::json!({
+            "hand_id": params.hand_id,
+            "added": added,
+            "all_tags": tag_set,
+        });
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_remove_tag(
+        &self,
+        params: RemoveTagParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let exists = self
+            .store
+            .hand_exists(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to check hand: {}", e)))?;
+        if !exists {
+            return Ok(CallToolResult::success(vec![Content::text(format!(
+                "Hand {} not found",
+                params.hand_id
+            ))]));
+        }
+
+        let current = self
+            .store
+            .get_tags(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to get tags: {}", e)))?
+            .unwrap_or_default();
+
+        let mut tag_set: Vec<String> = if current.is_empty() {
+            Vec::new()
+        } else {
+            current
+                .trim_matches(',')
+                .split(',')
+                .map(|s| s.to_string())
+                .collect()
+        };
+
+        let removed: Vec<String> = if params.tags.is_empty() {
+            // Remove all tags
+            let all = tag_set.clone();
+            tag_set.clear();
+            all
+        } else {
+            let mut removed = Vec::new();
+            for tag in &params.tags {
+                let tag = tag.trim().to_lowercase();
+                if let Some(pos) = tag_set.iter().position(|t| t == &tag) {
+                    tag_set.remove(pos);
+                    removed.push(tag);
+                }
+            }
+            removed
+        };
+
+        let new_tags = if tag_set.is_empty() {
+            String::new()
+        } else {
+            format!(",{},", tag_set.join(","))
+        };
+
+        self.store
+            .update_tags(params.hand_id, &new_tags)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to update tags: {}", e)))?;
+
+        let response = serde_json::json!({
+            "hand_id": params.hand_id,
+            "removed": removed,
+            "remaining_tags": tag_set,
+        });
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    pub(crate) async fn tool_get_tags(
+        &self,
+        params: GetTagsParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let exists = self
+            .store
+            .hand_exists(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to check hand: {}", e)))?;
+        if !exists {
+            return Ok(CallToolResult::success(vec![Content::text(format!(
+                "Hand {} not found",
+                params.hand_id
+            ))]));
+        }
+
+        let current = self
+            .store
+            .get_tags(params.hand_id)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to get tags: {}", e)))?
+            .unwrap_or_default();
+
+        let tags: Vec<&str> = if current.is_empty() {
+            Vec::new()
+        } else {
+            current.trim_matches(',').split(',').collect()
+        };
+
+        let response = serde_json::json!({
+            "hand_id": params.hand_id,
+            "tags": tags,
+        });
         let json = serde_json::to_string_pretty(&response)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))

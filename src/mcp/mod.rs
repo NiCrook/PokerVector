@@ -197,6 +197,30 @@ impl PokerVectorMcp {
         self.tool_cluster_villains(params).await
     }
 
+    #[tool(description = "Add one or more tags/labels to a hand (e.g. 'bad call', 'good bluff', 'review later'). Tags persist in the database and can be filtered with search_hands.")]
+    async fn tag_hand(
+        &self,
+        Parameters(params): Parameters<TagHandParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_tag_hand(params).await
+    }
+
+    #[tool(description = "Remove tags from a hand. Pass specific tags to remove, or an empty list to clear all tags.")]
+    async fn remove_tag(
+        &self,
+        Parameters(params): Parameters<RemoveTagParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_remove_tag(params).await
+    }
+
+    #[tool(description = "Get all tags/labels applied to a hand.")]
+    async fn get_tags(
+        &self,
+        Parameters(params): Parameters<GetTagsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_tags(params).await
+    }
+
     #[tool(description = "Find villains in the database with similar stats to a target profile. Useful for finding players who play like a specific archetype (e.g. loose-aggressive, nit, etc.).")]
     async fn get_similar_villains(
         &self,
@@ -479,6 +503,9 @@ impl ServerHandler for PokerVectorMcp {
                  export_hands to export hands as CSV or raw text, \
                  get_hand_as_replayer for step-by-step hand replay with running pot/stacks, \
                  quiz_hand to generate a decision quiz from a hand, \
+                 tag_hand to add persistent labels to hands (e.g. 'bad call', 'review later'), \
+                 remove_tag to remove tags from a hand, \
+                 get_tags to view tags on a hand, \
                  cluster_villains to classify all opponents into archetypes (Nit/TAG/LAG/Whale/Maniac/Rock), \
                  get_similar_villains to find opponents matching a stat profile, \
                  get_preflop_chart to build a preflop hand chart by position (Hold'em only), \

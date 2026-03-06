@@ -31,6 +31,8 @@ pub struct SearchHandsParams {
     pub from_date: Option<String>,
     #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15' or '2024-02-15 23:59:59')")]
     pub to_date: Option<String>,
+    #[schemars(description = "Filter by user-applied tag (e.g. 'bad call', 'review later')")]
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -569,6 +571,28 @@ pub struct ClusterVillainsParams {
     pub from_date: Option<String>,
     #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
     pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TagHandParams {
+    #[schemars(description = "The hand ID to tag")]
+    pub hand_id: u64,
+    #[schemars(description = "Tags to add (e.g. 'bad call', 'review later', 'good bluff'). Provide one or more tags.")]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct RemoveTagParams {
+    #[schemars(description = "The hand ID to remove tags from")]
+    pub hand_id: u64,
+    #[schemars(description = "Tags to remove. If empty, removes all tags from the hand.")]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetTagsParams {
+    #[schemars(description = "The hand ID to get tags for")]
+    pub hand_id: u64,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
