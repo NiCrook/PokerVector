@@ -1,7 +1,7 @@
 Hand #2651601393 - Holdem (No Limit) - $0.01/$0.02 - 2026/01/22 11:20:08 UTC
 McCook 9-max Seat #9 is the button
 Seat 1: Ddrupp ($5.77)
-Seat 2: PolarFox ($3.94)
+Seat 2: TestHero ($3.94)
 Seat 3: Freddeyz ($3.36)
 Seat 4: PokerBossBabe ($2.00)
 Seat 6: ksedoks ($0.77)
@@ -9,9 +9,9 @@ Seat 7: SIA73 ($2.14)
 Seat 8: ScientistRUS ($2.00)
 Seat 9: CPTMYK713 ($0.94)
 Ddrupp posts the small blind $0.01
-PolarFox posts the big blind $0.02
+TestHero posts the big blind $0.02
 *** HOLE CARDS ***
-Dealt to PolarFox [Kd Js]
+Dealt to TestHero [Kd Js]
 Freddeyz folds
 PokerBossBabe raises $0.07 to $0.07
 ksedoks calls $0.07
@@ -19,25 +19,25 @@ SIA73 folds
 ScientistRUS folds
 CPTMYK713 folds
 Ddrupp folds
-PolarFox calls $0.05
+TestHero calls $0.05
 *** FLOP *** [6c Td 3c]
 Main pot $0.21 | Rake $0.01
-PolarFox bets $0.02
+TestHero bets $0.02
 PokerBossBabe calls $0.02
 ksedoks calls $0.02
 *** TURN *** [6c Td 3c] [9s]
 Main pot $0.27 | Rake $0.01
-PolarFox bets $0.02
+TestHero bets $0.02
 PokerBossBabe calls $0.02
 ksedoks calls $0.02
 *** RIVER *** [6c Td 3c 9s] [9c]
 Main pot $0.33 | Rake $0.01
-PolarFox bets $0.02
+TestHero bets $0.02
 PokerBossBabe calls $0.02
 ksedoks calls $0.02
 *** SHOW DOWN ***
 Main pot $0.38 | Rake $0.02
-PolarFox shows [Kd Js] (a pair of Nines [9s 9c Kd Js Td])
+TestHero shows [Kd Js] (a pair of Nines [9s 9c Kd Js Td])
 PokerBossBabe shows [Kh As] (a pair of Nines [9s 9c As Kh Td])
 ksedoks shows [Ac Ks] (a pair of Nines [9s 9c Ac Ks Td])
 PokerBossBabe collected $0.19 from main pot
@@ -46,7 +46,7 @@ ksedoks collected $0.19 from main pot
 Total pot $0.38 | Rake $0.02
 Board [6c Td 3c 9s 9c]
 Seat 1: Ddrupp (small blind) folded on the Pre-Flop
-Seat 2: PolarFox (big blind) showed [Kd Js] and lost with a pair of Nines [9s 9c Kd Js Td]
+Seat 2: TestHero (big blind) showed [Kd Js] and lost with a pair of Nines [9s 9c Kd Js Td]
 Seat 3: Freddeyz folded on the Pre-Flop and did not bet
 Seat 4: PokerBossBabe showed [Kh As] and won $0.19 with a pair of Nines [9s 9c As Kh Td] with the kicker Ace
 Seat 6: ksedoks showed [Ac Ks] and won $0.19 with a pair of Nines [9s 9c Ac Ks Td] with the kicker Ace

@@ -1,54 +1,54 @@
 Hand #2651599519 - Holdem (No Limit) - $0.01/$0.02 - 2026/01/22 11:12:18 UTC
 McCook 9-max Seat #1 is the button
 Seat 1: Ddrupp ($5.49)
-Seat 2: PolarFox ($2.04)
+Seat 2: TestHero ($2.04)
 Seat 3: Freddeyz ($2.67)
 Seat 4: PokerBossBabe ($2.65)
 Seat 7: SIA73 ($2.17)
 Seat 9: CPTMYK713 ($0.97)
-PolarFox posts the small blind $0.01
+TestHero posts the small blind $0.01
 Freddeyz posts the big blind $0.02
 *** HOLE CARDS ***
-Dealt to PolarFox [5h 5s]
+Dealt to TestHero [5h 5s]
 PokerBossBabe folds
 SIA73 folds
 CPTMYK713 folds
 Ddrupp folds
-PolarFox raises $0.03 to $0.04
+TestHero raises $0.03 to $0.04
 Freddeyz calls $0.02
 *** FLOP *** [6h 3h 9c]
 Main pot $0.08 | Rake $0.00
-PolarFox bets $0.02
+TestHero bets $0.02
 Freddeyz calls $0.02
 *** TURN *** [6h 3h 9c] [As]
 Main pot $0.12 | Rake $0.00
-PolarFox bets $0.02
+TestHero bets $0.02
 Freddeyz raises $0.04 to $0.04
-PolarFox raises $0.04 to $0.06
+TestHero raises $0.04 to $0.06
 Freddeyz raises $0.04 to $0.08
-PolarFox raises $0.04 to $0.10
+TestHero raises $0.04 to $0.10
 Freddeyz raises $0.04 to $0.12
-PolarFox raises $0.04 to $0.14
+TestHero raises $0.04 to $0.14
 Freddeyz raises $0.04 to $0.16
-PolarFox raises $0.04 to $0.18
+TestHero raises $0.04 to $0.18
 Freddeyz raises $0.04 to $0.20
-PolarFox raises $0.04 to $0.22
+TestHero raises $0.04 to $0.22
 Freddeyz calls $0.02
 *** RIVER *** [6h 3h 9c As] [8d]
 Main pot $0.54 | Rake $0.02
-PolarFox bets $0.02
+TestHero bets $0.02
 Freddeyz raises $0.32 to $0.32
-PolarFox calls $0.30
+TestHero calls $0.30
 *** SHOW DOWN ***
 Main pot $1.14 | Rake $0.06
-PolarFox shows [5h 5s] (a pair of Fives [5s 5h As 9c 8d])
+TestHero shows [5h 5s] (a pair of Fives [5s 5h As 9c 8d])
 Freddeyz shows [9d 9s] (three of a kind, Set of Nines [9s 9d 9c As 8d])
 Freddeyz collected $1.14 from main pot
 *** SUMMARY ***
 Total pot $1.14 | Rake $0.04 | JP Fee $0.02
 Board [6h 3h 9c As 8d]
 Seat 1: Ddrupp (button) folded on the Pre-Flop
-Seat 2: PolarFox (small blind) showed [5h 5s] and lost with a pair of Fives [5s 5h As 9c 8d]
+Seat 2: TestHero (small blind) showed [5h 5s] and lost with a pair of Fives [5s 5h As 9c 8d]
 Seat 3: Freddeyz (big blind) showed [9d 9s] and won $1.14 with three of a kind, Set of Nines [9s 9d 9c As 8d]
 Seat 4: PokerBossBabe folded on the Pre-Flop and did not bet
 Seat 7: SIA73 folded on the Pre-Flop and did not bet

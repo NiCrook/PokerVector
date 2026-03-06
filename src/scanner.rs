@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::config::{Account, SiteKind};
 
 /// Scan for ACR hand history directories.
-/// Checks `C:\AmericasCardroom\handHistory\` for subdirectories containing `.txt` files.
+/// Checks the default ACR hand history install path for subdirectories containing `.txt` files.
 fn scan_acr() -> Vec<Account> {
     let base = PathBuf::from(r"C:\AmericasCardroom\handHistory");
     if !base.is_dir() {

@@ -90,7 +90,7 @@ fn test_detect_unknown() {
 #[test]
 fn test_auto_detect_routes() {
     let content = load_fixture("cash_simple.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     assert_eq!(results.len(), 1);
     assert!(results[0].is_ok());
 }
@@ -100,7 +100,7 @@ fn test_auto_detect_routes() {
 #[test]
 fn test_cash_simple() {
     let content = load_fixture("cash_simple.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     assert_eq!(results.len(), 1);
     let hand = results[0].as_ref().unwrap();
 
@@ -112,7 +112,7 @@ fn test_cash_simple() {
     assert_eq!(hand.players.len(), 7);
 
     // Hero identification
-    assert_eq!(hand.hero, Some("PolarFox".to_string()));
+    assert_eq!(hand.hero, Some("TestHero".to_string()));
     assert_eq!(hand.hero_position, Some(Position::BB));
     assert_eq!(hand.hero_cards.len(), 2);
     assert_eq!(hand.hero_cards[0].to_string(), "Qd");
@@ -131,14 +131,14 @@ fn test_cash_simple() {
     // Result: hero won
     assert_eq!(hand.result.hero_result, HeroResult::Won);
     assert_eq!(hand.result.winners.len(), 1);
-    assert_eq!(hand.result.winners[0].player, "PolarFox");
+    assert_eq!(hand.result.winners[0].player, "TestHero");
     assert!((hand.result.winners[0].amount.amount - 0.06).abs() < 0.001);
 }
 
 #[test]
 fn test_cash_showdown() {
     let content = load_fixture("cash_showdown.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     assert_eq!(hand.id, 2651599519);
@@ -160,7 +160,7 @@ fn test_cash_showdown() {
 #[test]
 fn test_cash_ante() {
     let content = load_fixture("cash_ante.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     assert_eq!(hand.id, 2662089748);
@@ -183,7 +183,7 @@ fn test_cash_ante() {
 #[test]
 fn test_tournament_basic() {
     let content = load_fixture("tournament_basic.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     assert_eq!(hand.id, 2653060401);
@@ -213,7 +213,7 @@ fn test_tournament_basic() {
 #[test]
 fn test_split_pot() {
     let content = load_fixture("split_pot.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     // Two winners splitting the pot
@@ -229,7 +229,7 @@ fn test_split_pot() {
 #[test]
 fn test_side_pots() {
     let content = load_fixture("side_pots.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     assert_eq!(hand.id, 2651598942);
@@ -248,7 +248,7 @@ fn test_side_pots() {
 #[test]
 fn test_multiword_name() {
     let content = load_fixture("multiword_name.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     // "Lost It" should be a valid player
@@ -271,7 +271,7 @@ fn test_multiword_name() {
 #[test]
 fn test_sitting_out() {
     let content = load_fixture("sitting_out.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     // SIA73 is sitting out
@@ -280,7 +280,7 @@ fn test_sitting_out() {
     assert!(sia.position.is_none());
 
     // Other players should have positions
-    let polar = hand.players.iter().find(|p| p.name == "PolarFox").unwrap();
+    let polar = hand.players.iter().find(|p| p.name == "TestHero").unwrap();
     assert!(!polar.is_sitting_out);
     assert!(polar.position.is_some());
 }
@@ -288,7 +288,7 @@ fn test_sitting_out() {
 #[test]
 fn test_hero_allin() {
     let content = load_fixture("hero_allin.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     assert_eq!(hand.id, 2651601073);
@@ -305,7 +305,7 @@ fn test_hero_allin() {
 
     // Check all-in action exists
     let allin_action = hand.actions.iter().find(|a| {
-        a.player == "PolarFox" && matches!(a.action_type, ActionType::Raise { all_in: true, .. })
+        a.player == "TestHero" && matches!(a.action_type, ActionType::Raise { all_in: true, .. })
     });
     assert!(allin_action.is_some());
 }
@@ -315,7 +315,7 @@ fn test_hero_allin() {
 #[test]
 fn test_omaha_hl() {
     let content = load_fixture("omaha_hl.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     assert_eq!(results.len(), 1);
     let hand = results[0].as_ref().unwrap();
 
@@ -343,7 +343,7 @@ fn test_omaha_hl() {
 #[test]
 fn test_omaha_plo() {
     let content = load_fixture("omaha_plo.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     assert_eq!(results.len(), 1);
     let hand = results[0].as_ref().unwrap();
 
@@ -359,10 +359,10 @@ fn test_omaha_plo() {
     // Board should have 5 cards (went to showdown)
     assert_eq!(hand.board.len(), 5);
 
-    // Hero (PolarFox) won with a straight
+    // Hero (TestHero) won with a straight
     assert_eq!(hand.result.hero_result, HeroResult::Won);
     let winner_names: Vec<&str> = hand.result.winners.iter().map(|w| w.player.as_str()).collect();
-    assert!(winner_names.contains(&"PolarFox"));
+    assert!(winner_names.contains(&"TestHero"));
 
     // No stud cards
     assert!(hand.stud_cards.is_none());
@@ -371,7 +371,7 @@ fn test_omaha_plo() {
 #[test]
 fn test_five_card_omaha() {
     let content = load_fixture("five_card_omaha.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     assert_eq!(results.len(), 1);
     let hand = results[0].as_ref().unwrap();
 
@@ -392,7 +392,7 @@ fn test_five_card_omaha() {
 #[test]
 fn test_stud_hl() {
     let content = load_fixture("stud_hl.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     assert_eq!(results.len(), 1);
     let hand = results[0].as_ref().unwrap();
 
@@ -430,7 +430,7 @@ fn test_stud_hl() {
 #[test]
 fn test_bomb_pot() {
     let content = load_fixture("bomb_pot.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     assert_eq!(results.len(), 1);
     let hand = results[0].as_ref().unwrap();
 
@@ -450,7 +450,7 @@ fn test_bomb_pot() {
 fn test_existing_hands_have_holdem_defaults() {
     // Verify existing holdem hands get correct defaults
     let content = load_fixture("cash_simple.txt");
-    let results = parse_auto(&content, "PolarFox");
+    let results = parse_auto(&content, "TestHero");
     let hand = results[0].as_ref().unwrap();
 
     assert_eq!(hand.variant, PokerVariant::Holdem);
@@ -460,30 +460,3 @@ fn test_existing_hands_have_holdem_defaults() {
     assert!(hand.stud_cards.is_none());
 }
 
-#[test]
-fn test_parse_all_polarfox_files() {
-    // Integration test: parse all real hand history files
-    let pattern = "PolarFox/*.txt";
-    let mut total_hands = 0;
-    let mut total_errors = 0;
-
-    for entry in glob::glob(pattern).unwrap() {
-        let path = entry.unwrap();
-        let content = std::fs::read_to_string(&path).unwrap();
-        let results = parse_auto(&content, "PolarFox");
-
-        for result in &results {
-            match result {
-                Ok(_) => total_hands += 1,
-                Err(e) => {
-                    total_errors += 1;
-                    eprintln!("Error in {:?}: {}", path.file_name(), e);
-                }
-            }
-        }
-    }
-
-    assert!(total_hands > 0, "No hands parsed");
-    assert_eq!(total_errors, 0, "Had {} parse errors", total_errors);
-    eprintln!("Successfully parsed {} hands with 0 errors", total_hands);
-}

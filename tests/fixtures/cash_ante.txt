@@ -1,37 +1,37 @@
 Hand #2662089748 - Holdem (No Limit) - $0.01/$0.02, Ante $0.01 - 2026/02/03 03:56:30 UTC
 Colwich 6-max Seat #2 is the button
 Seat 2: zepequeno33 ($1.60)
-Seat 4: PolarFox ($1.60)
+Seat 4: TestHero ($1.60)
 zepequeno33 posts ante $0.01
-PolarFox posts ante $0.01
+TestHero posts ante $0.01
 zepequeno33 posts the small blind $0.01
-PolarFox posts the big blind $0.02
+TestHero posts the big blind $0.02
 *** HOLE CARDS ***
 Main pot $0.02 | Rake $0.00
-Dealt to PolarFox [5c 9h]
+Dealt to TestHero [5c 9h]
 zepequeno33 raises $0.04 to $0.05
-PolarFox calls $0.03
+TestHero calls $0.03
 *** FLOP *** [Ks 2s Ah]
 Main pot $0.12 | Rake $0.00
-PolarFox checks
+TestHero checks
 zepequeno33 bets $0.04
-PolarFox calls $0.04
+TestHero calls $0.04
 *** TURN *** [Ks 2s Ah] [8s]
 Main pot $0.19 | Rake $0.01
-PolarFox checks
+TestHero checks
 zepequeno33 bets $0.14
-PolarFox calls $0.14
+TestHero calls $0.14
 *** RIVER *** [Ks 2s Ah 8s] [Jd]
 Main pot $0.46 | Rake $0.02
-PolarFox checks
+TestHero checks
 zepequeno33 checks
 *** SHOW DOWN ***
 Main pot $0.46 | Rake $0.02
 zepequeno33 shows [Js 5d] (a pair of Jacks [Js Jd Ah Ks 8s])
-PolarFox shows [5c 9h] (a high card, Ace high [Ah Ks Jd 9h 8s])
+TestHero shows [5c 9h] (a high card, Ace high [Ah Ks Jd 9h 8s])
 zepequeno33 collected $0.46 from main pot
 *** SUMMARY ***
 Total pot $0.46 | Rake $0.02
 Board [Ks 2s Ah 8s Jd]
 Seat 2: zepequeno33 (button) showed [Js 5d] and won $0.46 with a pair of Jacks [Js Jd Ah Ks 8s]
-Seat 4: PolarFox (big blind) showed [5c 9h] and lost with a high card, Ace high [Ah Ks Jd 9h 8s]
+Seat 4: TestHero (big blind) showed [5c 9h] and lost with a high card, Ace high [Ah Ks Jd 9h 8s]

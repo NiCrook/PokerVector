@@ -123,8 +123,8 @@ mod tests {
         let config = Config {
             accounts: vec![Account {
                 site: SiteKind::Acr,
-                hero: "PolarFox".to_string(),
-                path: PathBuf::from(r"C:\AmericasCardroom\handHistory\PolarFox"),
+                hero: "TestHero".to_string(),
+                path: PathBuf::from("/opt/pokerclient/handhistory/TestHero"),
                 manual: false,
             }],
             last_import: Some(ImportLog {
@@ -139,7 +139,7 @@ mod tests {
         let parsed: Config = toml::from_str(&toml_str).unwrap();
 
         assert_eq!(parsed.accounts.len(), 1);
-        assert_eq!(parsed.accounts[0].hero, "PolarFox");
+        assert_eq!(parsed.accounts[0].hero, "TestHero");
         assert_eq!(parsed.accounts[0].site, SiteKind::Acr);
         assert!(!parsed.accounts[0].manual);
         let log = parsed.last_import.unwrap();
@@ -215,7 +215,7 @@ mod tests {
         let config = Config {
             accounts: vec![Account {
                 site: SiteKind::Acr,
-                hero: "PolarFox".to_string(),
+                hero: "TestHero".to_string(),
                 path: PathBuf::from("/a"),
                 manual: false,
             }],
@@ -224,7 +224,7 @@ mod tests {
 
         let scanned = vec![Account {
             site: SiteKind::Acr,
-            hero: "PolarFox".to_string(),
+            hero: "TestHero".to_string(),
             path: PathBuf::from("/b"),
             manual: false,
         }];
@@ -251,7 +251,7 @@ path = "/test"
         let toml_str = r#"
 [[accounts]]
 site = "acr"
-hero = "PolarFox"
+hero = "TestHero"
 path = "/hands"
 
 [qdrant]
@@ -260,6 +260,6 @@ collection = "poker_hands"
 "#;
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.accounts.len(), 1);
-        assert_eq!(config.accounts[0].hero, "PolarFox");
+        assert_eq!(config.accounts[0].hero, "TestHero");
     }
 }

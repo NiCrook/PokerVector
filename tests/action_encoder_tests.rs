@@ -18,16 +18,16 @@ fn parse_first_hand(fixture: &str, hero: &str) -> pokervector::types::Hand {
 
 #[test]
 fn test_encoding_deterministic() {
-    let hand = parse_first_hand("cash_simple.txt", "PolarFox");
-    let enc1 = encode_action_sequence(&hand, "PolarFox");
-    let enc2 = encode_action_sequence(&hand, "PolarFox");
+    let hand = parse_first_hand("cash_simple.txt", "TestHero");
+    let enc1 = encode_action_sequence(&hand, "TestHero");
+    let enc2 = encode_action_sequence(&hand, "TestHero");
     assert_eq!(enc1, enc2, "Encoding should be deterministic");
 }
 
 #[test]
 fn test_encoding_cash_simple_structure() {
-    let hand = parse_first_hand("cash_simple.txt", "PolarFox");
-    let encoded = encode_action_sequence(&hand, "PolarFox");
+    let hand = parse_first_hand("cash_simple.txt", "TestHero");
+    let encoded = encode_action_sequence(&hand, "TestHero");
 
     // Should have PRE: line
     assert!(
@@ -47,8 +47,8 @@ fn test_encoding_cash_simple_structure() {
 
 #[test]
 fn test_encoding_stud_format() {
-    let hand = parse_first_hand("stud_hl.txt", "PolarFox");
-    let encoded = encode_action_sequence(&hand, "PolarFox");
+    let hand = parse_first_hand("stud_hl.txt", "TestHero");
+    let encoded = encode_action_sequence(&hand, "TestHero");
 
     // Should have stud street labels
     assert!(
@@ -72,8 +72,8 @@ fn test_encoding_stud_format() {
 
 #[test]
 fn test_encoding_bomb_pot() {
-    let hand = parse_first_hand("bomb_pot.txt", "PolarFox");
-    let encoded = encode_action_sequence(&hand, "PolarFox");
+    let hand = parse_first_hand("bomb_pot.txt", "TestHero");
+    let encoded = encode_action_sequence(&hand, "TestHero");
 
     assert!(
         encoded.starts_with("BOMB_POT"),
@@ -89,12 +89,12 @@ fn test_encoding_bomb_pot() {
 
 #[test]
 fn test_encoding_uses_hero_alias() {
-    let hand = parse_first_hand("cash_simple.txt", "PolarFox");
-    let encoded = encode_action_sequence(&hand, "PolarFox");
+    let hand = parse_first_hand("cash_simple.txt", "TestHero");
+    let encoded = encode_action_sequence(&hand, "TestHero");
 
-    // PolarFox should be anonymized as HERO
+    // TestHero should be anonymized as HERO
     assert!(
-        !encoded.contains("PolarFox"),
+        !encoded.contains("TestHero"),
         "Hero name should be anonymized, got:\n{}",
         encoded
     );
@@ -107,8 +107,8 @@ fn test_encoding_uses_hero_alias() {
 
 #[test]
 fn test_encoding_sitting_out() {
-    let hand = parse_first_hand("sitting_out.txt", "PolarFox");
-    let encoded = encode_action_sequence(&hand, "PolarFox");
+    let hand = parse_first_hand("sitting_out.txt", "TestHero");
+    let encoded = encode_action_sequence(&hand, "TestHero");
 
     // If hero sat out, should be SAT_OUT
     if hand.result.hero_result == pokervector::types::HeroResult::SatOut {
@@ -137,11 +137,11 @@ fn test_encoding_all_fixtures_no_panic() {
 
     for fixture in &fixtures {
         let content = load_fixture(fixture);
-        let results = parse_auto(&content, "PolarFox");
+        let results = parse_auto(&content, "TestHero");
         for result in results {
             if let Ok(hand) = result {
                 // Should not panic
-                let encoded = encode_action_sequence(&hand, "PolarFox");
+                let encoded = encode_action_sequence(&hand, "TestHero");
                 assert!(
                     !encoded.is_empty(),
                     "Encoding should not be empty for {}",
@@ -154,8 +154,8 @@ fn test_encoding_all_fixtures_no_panic() {
 
 #[test]
 fn test_encoding_omaha_has_streets() {
-    let hand = parse_first_hand("omaha_hl.txt", "PolarFox");
-    let encoded = encode_action_sequence(&hand, "PolarFox");
+    let hand = parse_first_hand("omaha_hl.txt", "TestHero");
+    let encoded = encode_action_sequence(&hand, "TestHero");
 
     // Omaha should use standard Hold'em street labels
     assert!(

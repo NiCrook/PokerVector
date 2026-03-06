@@ -1,31 +1,31 @@
 Hand #2651598865 - Holdem (No Limit) - $0.01/$0.02 - 2026/01/22 11:09:21 UTC
 McCook 9-max Seat #9 is the button
 Seat 1: Ddrupp ($5.51)
-Seat 2: PolarFox ($2.00)
+Seat 2: TestHero ($2.00)
 Seat 3: Freddeyz ($2.67)
 Seat 4: PokerBossBabe ($2.67)
 Seat 7: SIA73 ($2.17)
 Seat 8: BigJames73 ($0.87)
 Seat 9: CPTMYK713 ($0.97)
 Ddrupp posts the small blind $0.01
-PolarFox posts the big blind $0.02
+TestHero posts the big blind $0.02
 *** HOLE CARDS ***
-Dealt to PolarFox [Qd Jc]
+Dealt to TestHero [Qd Jc]
 Freddeyz folds
 PokerBossBabe calls $0.02
 SIA73 folds
 BigJames73 folds
 CPTMYK713 folds
 Ddrupp calls $0.01
-PolarFox raises $1.98 to $2.00 and is all-in
+TestHero raises $1.98 to $2.00 and is all-in
 PokerBossBabe folds
 Ddrupp folds
-Uncalled bet ($1.98) returned to PolarFox
-PolarFox does not show
+Uncalled bet ($1.98) returned to TestHero
+TestHero does not show
 *** SUMMARY ***
 Total pot $0.06
 Seat 1: Ddrupp (small blind) folded on the Pre-Flop
-Seat 2: PolarFox did not show and won $0.06
+Seat 2: TestHero did not show and won $0.06
 Seat 3: Freddeyz folded on the Pre-Flop and did not bet
 Seat 4: PokerBossBabe folded on the Pre-Flop and did not bet
 Seat 7: SIA73 folded on the Pre-Flop and did not bet

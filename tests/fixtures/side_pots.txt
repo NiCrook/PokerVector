@@ -5,23 +5,23 @@ Seat 3: zapssss (1019.00) is sitting out
 Seat 4: onKing (98200.00)
 Seat 5: Jakesthebest (87300.00) is sitting out
 Seat 6: baljanXenvi (874275.00)
-Seat 7: PolarFox (100000.00)
+Seat 7: TestHero (100000.00)
 Seat 8: NineABS (197350.00)
 slbetters posts ante 600.00
 zapssss posts ante 600.00
 onKing posts ante 600.00
 Jakesthebest posts ante 600.00
 baljanXenvi posts ante 600.00
-PolarFox posts ante 600.00
+TestHero posts ante 600.00
 NineABS posts ante 600.00
 zapssss posts the big blind 419.00 and is all-in
 *** HOLE CARDS ***
 Main pot 4200.00
-Dealt to PolarFox [9c Qs]
+Dealt to TestHero [9c Qs]
 onKing calls 5000.00
 Jakesthebest folds
 baljanXenvi raises 873675.00 to 873675.00 and is all-in
-PolarFox folds
+TestHero folds
 NineABS calls 196750.00 and is all-in
 slbetters folds
 onKing calls 92600.00 and is all-in
@@ -57,5 +57,5 @@ Seat 3: zapssss (big blind) showed [Td 7s] and lost with a pair of Eights [8s 8c
 Seat 4: onKing showed [Jd Kc] and lost with a pair of Eights [8s 8c Kc Jd 6c]
 Seat 5: Jakesthebest folded on the Pre-Flop and did not bet
 Seat 6: baljanXenvi showed [As Qd] and lost with a pair of Eights [8s 8c As Qd 6c]
-Seat 7: PolarFox folded on the Pre-Flop and did not bet
+Seat 7: TestHero folded on the Pre-Flop and did not bet
 Seat 8: NineABS showed [Th Tc] and won 495719.00 with two pair, Tens and Eights [Th Tc 8s 8c 6c]

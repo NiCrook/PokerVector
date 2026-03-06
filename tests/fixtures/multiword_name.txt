@@ -4,25 +4,25 @@ Seat 1: Cheeseley (586729.00)
 Seat 2: verybadlizard (112588.00)
 Seat 3: topo76 (132672.00)
 Seat 4: Coop032 (404758.00)
-Seat 5: PolarFox (754338.00)
+Seat 5: TestHero (754338.00)
 Seat 6: MRLUCKBOX (304261.00)
 Seat 7: Lost It (407532.00)
 Cheeseley posts ante 2500.00
 verybadlizard posts ante 2500.00
 topo76 posts ante 2500.00
 Coop032 posts ante 2500.00
-PolarFox posts ante 2500.00
+TestHero posts ante 2500.00
 MRLUCKBOX posts ante 2500.00
 Lost It posts ante 2500.00
 Lost It posts the small blind 10000.00
 Cheeseley posts the big blind 20000.00
 *** HOLE CARDS ***
 Main pot 17500.00
-Dealt to PolarFox [6d 8d]
+Dealt to TestHero [6d 8d]
 verybadlizard folds
 topo76 folds
 Coop032 folds
-PolarFox folds
+TestHero folds
 MRLUCKBOX raises 53750.00 to 53750.00
 Lost It folds
 Cheeseley raises 564229.00 to 584229.00 and is all-in
@@ -46,6 +46,6 @@ Seat 1: Cheeseley (big blind) showed [Ah Qh] and won 631022.00 with a pair of Ja
 Seat 2: verybadlizard folded on the Pre-Flop and did not bet
 Seat 3: topo76 folded on the Pre-Flop and did not bet
 Seat 4: Coop032 folded on the Pre-Flop and did not bet
-Seat 5: PolarFox folded on the Pre-Flop and did not bet
+Seat 5: TestHero folded on the Pre-Flop and did not bet
 Seat 6: MRLUCKBOX (button) showed [Ac Tc] and lost with a pair of Jacks [Js Jh Ac Tc 5h]
 Seat 7: Lost It (small blind) folded on the Pre-Flop

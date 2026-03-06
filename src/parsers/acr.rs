@@ -698,9 +698,9 @@ fn parse_stud_dealt_line(
     stud_cards: &mut Vec<StudPlayerCards>,
 ) {
     // Stud dealt lines:
-    // Hero 3rd: "Dealt to PolarFox [5s 3s 9d]" (2 hidden + 1 up)
+    // Hero 3rd: "Dealt to TestHero [5s 3s 9d]" (2 hidden + 1 up)
     // Others 3rd: "Dealt to PLAYER [7h]" (1 visible card)
-    // 4th+: "Dealt to PolarFox [5s 3s 9d] [Jd]" (cumulative + new)
+    // 4th+: "Dealt to TestHero [5s 3s 9d] [Jd]" (cumulative + new)
     // Others 4th+: "Dealt to PLAYER [7h] [5c]" (cumulative visible + new)
     if let Some(bracket_pos) = line.find('[') {
         let name_part = line[9..bracket_pos].trim_end();

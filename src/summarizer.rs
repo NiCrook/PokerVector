@@ -341,12 +341,12 @@ mod tests {
             table_size: 9,
             button_seat: 1,
             players: vec![],
-            hero: Some("PolarFox".to_string()),
+            hero: Some("TestHero".to_string()),
             hero_position: Some(Position::BB),
             hero_cards: vec![make_card('Q', 'd'), make_card('J', 'c')],
             actions: vec![
                 Action {
-                    player: "PolarFox".to_string(),
+                    player: "TestHero".to_string(),
                     action_type: ActionType::Raise {
                         amount: Money { amount: 0.02, currency: Currency::USD },
                         to: Money { amount: 0.04, currency: Currency::USD },
@@ -368,7 +368,7 @@ mod tests {
             rake: None,
             result: HandResult {
                 winners: vec![Winner {
-                    player: "PolarFox".to_string(),
+                    player: "TestHero".to_string(),
                     amount: Money { amount: 0.06, currency: Currency::USD },
                     pot: "Main pot".to_string(),
                 }],
@@ -386,7 +386,7 @@ mod tests {
         assert!(summary.contains("Cash game"));
         assert!(summary.contains("$0.01/$0.02"));
         assert!(summary.contains("9-max"));
-        assert!(summary.contains("PolarFox"));
+        assert!(summary.contains("TestHero"));
         assert!(summary.contains("BB"));
         assert!(summary.contains("Qd Jc"));
         assert!(summary.contains("Hero raises to $0.04"));
@@ -398,7 +398,7 @@ mod tests {
     fn test_folded_hand_summary() {
         let mut hand = make_cash_hand();
         hand.actions = vec![Action {
-            player: "PolarFox".to_string(),
+            player: "TestHero".to_string(),
             action_type: ActionType::Fold,
             street: Street::Preflop,
         }];
