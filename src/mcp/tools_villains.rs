@@ -9,8 +9,8 @@ use crate::types::{ActionType, HeroResult};
 use super::analysis;
 use super::helpers::mcp_error;
 use super::params::{
-    GetPositionalMatchupsParams, GetShowdownHandsParams, GetSimilarVillainsParams,
-    GetVillainProfileParams, GetVillainTendenciesParams,
+    ClusterVillainsParams, GetPositionalMatchupsParams, GetShowdownHandsParams,
+    GetSimilarVillainsParams, GetVillainProfileParams, GetVillainTendenciesParams,
 };
 use super::PokerVectorMcp;
 
@@ -403,6 +403,94 @@ impl PokerVectorMcp {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
+    pub(crate) async fn tool_cluster_villains(
+        &self,
+        params: ClusterVillainsParams,
+    ) -> Result<CallToolResult, ErrorData> {
+        let min_hands = params.min_hands.unwrap_or(20);
+
+        let filter_params = SearchParams {
+            query: String::new(),
+            mode: search::SearchMode::default(),
+            position: None,
+            pot_type: None,
+            villain: None,
+            stakes: params.stakes,
+            result: None,
+            game_type: params.game_type,
+            variant: None,
+            betting_limit: None,
+            limit: None,
+            offset: None,
+            from_date: params.from_date,
+            to_date: params.to_date,
+        };
+        let filter = search::build_filter(&filter_params);
+
+        let hands = self
+            .store
+            .scroll_hands(filter)
+            .await
+            .map_err(|e| mcp_error(&format!("Failed to scroll hands: {}", e)))?;
+
+        let villains = stats::list_villains(&hands, &self.hero, min_hands);
+
+        // Group villains by archetype
+        let mut clusters: HashMap<&str, Vec<&stats::VillainSummary>> = HashMap::new();
+        for v in &villains {
+            let archetype = classify_archetype(v);
+            clusters.entry(archetype).or_default().push(v);
+        }
+
+        // Sort players within each cluster by hand count descending
+        for players in clusters.values_mut() {
+            players.sort_by(|a, b| b.hands.cmp(&a.hands));
+        }
+
+        // Build response
+        let mut cluster_json = serde_json::Map::new();
+        for (archetype, players) in &clusters {
+            let count = players.len();
+            let avg_vpip = players.iter().map(|v| v.vpip).sum::<f64>() / count as f64;
+            let avg_pfr = players.iter().map(|v| v.pfr).sum::<f64>() / count as f64;
+            let avg_af = players.iter().map(|v| v.aggression_factor).sum::<f64>() / count as f64;
+
+            let player_list: Vec<serde_json::Value> = players
+                .iter()
+                .map(|v| {
+                    serde_json::json!({
+                        "name": v.name,
+                        "hands": v.hands,
+                        "vpip": format!("{:.1}", v.vpip),
+                        "pfr": format!("{:.1}", v.pfr),
+                        "af": format!("{:.2}", v.aggression_factor),
+                        "net_profit_bb": format!("{:.1}", v.net_profit_bb),
+                    })
+                })
+                .collect();
+
+            cluster_json.insert(
+                archetype.to_string(),
+                serde_json::json!({
+                    "count": count,
+                    "avg_vpip": format!("{:.1}", avg_vpip),
+                    "avg_pfr": format!("{:.1}", avg_pfr),
+                    "avg_af": format!("{:.2}", avg_af),
+                    "players": player_list,
+                }),
+            );
+        }
+
+        let response = serde_json::json!({
+            "total_villains": villains.len(),
+            "clusters": cluster_json,
+        });
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
     pub(crate) async fn tool_get_villain_tendencies(
         &self,
         params: GetVillainTendenciesParams,
@@ -449,5 +537,40 @@ impl PokerVectorMcp {
         let json = serde_json::to_string_pretty(&response)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+}
+
+fn classify_archetype(v: &stats::VillainSummary) -> &'static str {
+    let vpip = v.vpip;
+    let pfr = v.pfr;
+    let af = v.aggression_factor;
+
+    if vpip < 18.0 {
+        "Nit"
+    } else if vpip <= 28.0 {
+        // Medium VPIP: TAG vs Rock
+        if pfr > vpip * 0.5 && af >= 1.5 {
+            "TAG"
+        } else if af < 1.0 {
+            "Rock"
+        } else {
+            "TAG"
+        }
+    } else if vpip <= 40.0 {
+        // Loose: LAG vs passive
+        if pfr >= 20.0 && af >= 2.0 {
+            "LAG"
+        } else if af < 1.5 {
+            "Whale"
+        } else {
+            "LAG"
+        }
+    } else {
+        // Very loose (>40 VPIP): Maniac vs Whale
+        if pfr >= 20.0 && af >= 2.0 {
+            "Maniac"
+        } else {
+            "Whale"
+        }
     }
 }

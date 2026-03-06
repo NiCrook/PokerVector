@@ -1,6 +1,8 @@
 pub mod params;
 mod analysis;
 mod helpers;
+mod prompts;
+mod resources;
 mod tools_advanced;
 mod tools_export;
 mod tools_hands;
@@ -9,6 +11,7 @@ mod tools_search;
 mod tools_sessions;
 mod tools_stats;
 mod tools_spots;
+mod tools_tournament;
 mod tools_villains;
 
 use rmcp::{
@@ -186,6 +189,14 @@ impl PokerVectorMcp {
         self.tool_quiz_hand(params).await
     }
 
+    #[tool(description = "Classify all tracked opponents into play-style archetypes (Nit, TAG, LAG, Whale, Maniac, Rock) based on VPIP, PFR, and aggression factor. Groups villains into clusters with per-cluster averages.")]
+    async fn cluster_villains(
+        &self,
+        Parameters(params): Parameters<ClusterVillainsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_cluster_villains(params).await
+    }
+
     #[tool(description = "Find villains in the database with similar stats to a target profile. Useful for finding players who play like a specific archetype (e.g. loose-aggressive, nit, etc.).")]
     async fn get_similar_villains(
         &self,
@@ -264,6 +275,14 @@ impl PokerVectorMcp {
         Parameters(params): Parameters<QueryHandsParams>,
     ) -> Result<CallToolResult, ErrorData> {
         self.tool_query_hands(params).await
+    }
+
+    #[tool(description = "Find hands where hero folded postflop but signals suggest a bluff/raise might have worked. Scores spots by: villain bet size (small = weak), heads-up, hero in position, river fold. Useful for studying missed aggression opportunities.")]
+    async fn get_bluff_candidates(
+        &self,
+        Parameters(params): Parameters<GetBluffCandidatesParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_bluff_candidates(params).await
     }
 
     #[tool(description = "Find hands where hero was all-in. Returns holdings, board, pot odds, and outcome for each all-in spot.")]
@@ -385,6 +404,46 @@ impl PokerVectorMcp {
     ) -> Result<CallToolResult, ErrorData> {
         self.tool_get_database_health(params).await
     }
+
+    #[tool(description = "Get a tournament overview: hand count, duration, starting/ending stack, blind levels, biggest wins/losses, and bustout detection.")]
+    async fn get_tournament_summary(
+        &self,
+        Parameters(params): Parameters<GetTournamentSummaryParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_tournament_summary(params).await
+    }
+
+    #[tool(description = "Track stack size and M-ratio across a tournament. Shows per-hand data points and summary stats (min/max/avg M, hands in push/fold territory).")]
+    async fn get_tournament_stack_stats(
+        &self,
+        Parameters(params): Parameters<GetTournamentStackStatsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_tournament_stack_stats(params).await
+    }
+
+    #[tool(description = "Review hero's decisions with a low M-ratio. Flags questionable plays: folding late position with M < 6, limping with M < 8, non-shove raises with M < 5.")]
+    async fn get_push_fold_review(
+        &self,
+        Parameters(params): Parameters<GetPushFoldReviewParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_push_fold_review(params).await
+    }
+
+    #[tool(description = "Analyze hero's bubble play in a tournament. Compares VPIP, steal%, and PFR between pre-bubble and bubble phases to detect over-tightening or fearless aggression.")]
+    async fn get_bubble_play(
+        &self,
+        Parameters(params): Parameters<GetBubblePlayParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_bubble_play(params).await
+    }
+
+    #[tool(description = "Show effective stack depths for significant tournament pots. Returns hero stack, villain effective stack, and effective stack for each hand with pot >= min_pot_bb.")]
+    async fn get_effective_stacks(
+        &self,
+        Parameters(params): Parameters<GetEffectiveStacksParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.tool_get_effective_stacks(params).await
+    }
 }
 
 #[tool_handler]
@@ -392,7 +451,11 @@ impl ServerHandler for PokerVectorMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::LATEST,
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            capabilities: ServerCapabilities::builder()
+                .enable_tools()
+                .enable_prompts()
+                .enable_resources()
+                .build(),
             server_info: Implementation {
                 name: "pokervector".to_string(),
                 title: Some("PokerVector".to_string()),
@@ -416,6 +479,7 @@ impl ServerHandler for PokerVectorMcp {
                  export_hands to export hands as CSV or raw text, \
                  get_hand_as_replayer for step-by-step hand replay with running pot/stacks, \
                  quiz_hand to generate a decision quiz from a hand, \
+                 cluster_villains to classify all opponents into archetypes (Nit/TAG/LAG/Whale/Maniac/Rock), \
                  get_similar_villains to find opponents matching a stat profile, \
                  get_preflop_chart to build a preflop hand chart by position (Hold'em only), \
                  reimport_hand to re-parse and re-embed a specific hand, \
@@ -440,9 +504,56 @@ impl ServerHandler for PokerVectorMcp {
                  get_villain_tendencies for action-reaction patterns against a specific villain, \
                  get_range_analysis for starting hand distribution by position, \
                  get_board_stats for hero performance by board texture (monotone/paired/wet/dry/etc.), \
-                 and get_database_health for database diagnostics."
+                 get_bluff_candidates for missed bluff opportunities (postflop folds where a raise might have worked), \
+                 get_database_health for database diagnostics, \
+                 get_tournament_summary for tournament overviews, \
+                 get_tournament_stack_stats for M-ratio/stack trajectory, \
+                 get_push_fold_review for low-M decision review, \
+                 get_bubble_play for bubble behavior analysis, \
+                 and get_effective_stacks for tournament stack depth data. \
+                 Also exposes resources (hero-stats, database-info) and prompts (review-last-session, analyze-villain, find-my-leaks)."
                     .to_string(),
             ),
         }
+    }
+
+    fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> impl std::future::Future<Output = Result<ListResourcesResult, ErrorData>> + Send + '_ {
+        std::future::ready(Ok(ListResourcesResult {
+            resources: self.list_resource_entries(),
+            next_cursor: None,
+            meta: None,
+        }))
+    }
+
+    fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> impl std::future::Future<Output = Result<ReadResourceResult, ErrorData>> + Send + '_ {
+        async move { self.read_resource_by_uri(&request.uri).await }
+    }
+
+    fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> impl std::future::Future<Output = Result<ListPromptsResult, ErrorData>> + Send + '_ {
+        std::future::ready(Ok(ListPromptsResult {
+            prompts: self.list_prompt_entries(),
+            next_cursor: None,
+            meta: None,
+        }))
+    }
+
+    fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> impl std::future::Future<Output = Result<GetPromptResult, ErrorData>> + Send + '_ {
+        std::future::ready(self.get_prompt_by_name(&request.name, &request.arguments))
     }
 }

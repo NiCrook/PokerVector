@@ -157,6 +157,18 @@ pub struct GetCoolersParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetBluffCandidatesParams {
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
+    #[schemars(description = "Minimum pot size in big blinds at the time hero folded (default 3)")]
+    pub min_pot_bb: Option<f64>,
+    #[schemars(description = "Max results to return (default 20)")]
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ExportHandsParams {
     #[schemars(description = "Export format: 'csv' (default) or 'raw' (original hand history text)")]
     pub format: Option<String>,
@@ -505,6 +517,54 @@ pub struct GetRangeAnalysisParams {
     pub game_type: Option<String>,
     #[schemars(description = "Filter by variant: holdem (default). Only Hold'em hands have 2-card combos.")]
     pub variant: Option<String>,
+    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
+    pub from_date: Option<String>,
+    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetTournamentSummaryParams {
+    #[schemars(description = "Tournament ID to summarize")]
+    pub tournament_id: u64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetTournamentStackStatsParams {
+    #[schemars(description = "Tournament ID to analyze stack trajectory for")]
+    pub tournament_id: u64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetPushFoldReviewParams {
+    #[schemars(description = "Tournament ID (optional — reviews all tournaments if omitted)")]
+    pub tournament_id: Option<u64>,
+    #[schemars(description = "M-ratio threshold for push/fold territory (default 10)")]
+    pub m_threshold: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetBubblePlayParams {
+    #[schemars(description = "Tournament ID to analyze bubble play for")]
+    pub tournament_id: u64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetEffectiveStacksParams {
+    #[schemars(description = "Tournament ID (optional — analyzes all tournaments if omitted)")]
+    pub tournament_id: Option<u64>,
+    #[schemars(description = "Minimum pot size in big blinds to include (default 10)")]
+    pub min_pot_bb: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ClusterVillainsParams {
+    #[schemars(description = "Minimum hands to include a villain (default 20)")]
+    pub min_hands: Option<u64>,
+    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
+    pub stakes: Option<String>,
+    #[schemars(description = "Filter by game type: cash or tournament")]
+    pub game_type: Option<String>,
     #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
     pub from_date: Option<String>,
     #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15')")]
