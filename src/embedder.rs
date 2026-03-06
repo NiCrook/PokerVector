@@ -16,8 +16,8 @@ impl Embedder {
         let repo = api.model("Xenova/bge-small-en-v1.5".to_string());
 
         let model_path = repo
-            .get("onnx/model.onnx")
-            .context("Failed to download ONNX model")?;
+            .get("onnx/model_quantized.onnx")
+            .context("Failed to download quantized ONNX model")?;
         let tokenizer_path = repo
             .get("tokenizer.json")
             .context("Failed to download tokenizer")?;

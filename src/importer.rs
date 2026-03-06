@@ -49,47 +49,55 @@ pub async fn import_directory(
         });
     }
 
-    // Phase 2: Summarize, embed, and store in batches
+    // Phase 2: Dedup — filter out already-imported hands
+    let mut skipped = 0u64;
+    let mut new_hands: Vec<&types::Hand> = Vec::new();
+    for hand in &all_hands {
+        if store.hand_exists(hand.id).await? {
+            skipped += 1;
+        } else {
+            new_hands.push(hand);
+        }
+    }
+
+    if new_hands.is_empty() {
+        return Ok(ImportResult {
+            imported: 0,
+            skipped,
+            errors: total_errors,
+        });
+    }
+
+    // Phase 3: Summarize + encode all new hands
+    let mut work: Vec<(&types::Hand, String, String)> = new_hands
+        .into_iter()
+        .map(|h| {
+            let summary = summarizer::summarize(h);
+            let action_enc = action_encoder::encode_action_sequence(h, hero);
+            (h, summary, action_enc)
+        })
+        .collect();
+
+    // Phase 4: Sort by summary length so similar-length texts batch together,
+    // reducing padding waste in ONNX inference (attention is O(seq_len²))
+    work.sort_by_key(|(_, summary, _)| summary.len());
+
+    // Phase 5: Embed + upsert in batches
     let batch_size = 32;
     let mut imported = 0u64;
-    let mut skipped = 0u64;
 
-    for chunk in all_hands.chunks(batch_size) {
-        let mut to_process: Vec<&types::Hand> = Vec::new();
-        for hand in chunk {
-            if store.hand_exists(hand.id).await? {
-                skipped += 1;
-            } else {
-                to_process.push(hand);
-            }
-        }
-
-        if to_process.is_empty() {
-            continue;
-        }
-
-        let summaries: Vec<String> = to_process
-            .iter()
-            .map(|h| summarizer::summarize(h))
-            .collect();
-        let action_encodings: Vec<String> = to_process
-            .iter()
-            .map(|h| action_encoder::encode_action_sequence(h, hero))
-            .collect();
-
-        let summary_refs: Vec<&str> = summaries.iter().map(|s| s.as_str()).collect();
-        let action_refs: Vec<&str> = action_encodings.iter().map(|s| s.as_str()).collect();
+    for chunk in work.chunks(batch_size) {
+        let summary_refs: Vec<&str> = chunk.iter().map(|(_, s, _)| s.as_str()).collect();
+        let action_refs: Vec<&str> = chunk.iter().map(|(_, _, a)| a.as_str()).collect();
 
         let summary_embeddings = embedder.embed_batch(&summary_refs)?;
         let action_embeddings = embedder.embed_batch(&action_refs)?;
 
-        let batch: Vec<(&types::Hand, &str, &str, HandEmbeddings)> = to_process
-            .into_iter()
-            .zip(summaries.iter())
-            .zip(action_encodings.iter())
+        let batch: Vec<(&types::Hand, &str, &str, HandEmbeddings)> = chunk
+            .iter()
             .zip(summary_embeddings.into_iter().zip(action_embeddings.into_iter()))
-            .map(|(((hand, summary), action_enc), (sum_emb, act_emb))| {
-                (hand, summary.as_str(), action_enc.as_str(), HandEmbeddings {
+            .map(|((hand, summary, action_enc), (sum_emb, act_emb))| {
+                (*hand, summary.as_str(), action_enc.as_str(), HandEmbeddings {
                     summary: sum_emb,
                     action: act_emb,
                 })
