@@ -258,10 +258,7 @@ impl PokerVectorMcp {
             (0.0, 0.0, 0.0, 0usize)
         } else {
             let min = m_values.iter().cloned().fold(f64::INFINITY, f64::min);
-            let max = m_values
-                .iter()
-                .cloned()
-                .fold(f64::NEG_INFINITY, f64::max);
+            let max = m_values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
             let avg = m_values.iter().sum::<f64>() / m_values.len() as f64;
             let pf = m_values.iter().filter(|&&m| m < 10.0).count();
             (min, max, avg, pf)
@@ -433,23 +430,22 @@ impl PokerVectorMcp {
             None
         };
 
-        let format_phase =
-            |stats: &Option<stats::PlayerStats>, label: &str| -> serde_json::Value {
-                match stats {
-                    Some(s) => serde_json::json!({
-                        "phase": label,
-                        "hands": s.hands_played,
-                        "vpip": format!("{:.1}", s.vpip),
-                        "pfr": format!("{:.1}", s.pfr),
-                        "steal_pct": format!("{:.1}", s.steal_pct),
-                        "fold_to_steal_bb": format!("{:.1}", s.fold_to_steal_bb),
-                    }),
-                    None => serde_json::json!({
-                        "phase": label,
-                        "hands": 0,
-                    }),
-                }
-            };
+        let format_phase = |stats: &Option<stats::PlayerStats>, label: &str| -> serde_json::Value {
+            match stats {
+                Some(s) => serde_json::json!({
+                    "phase": label,
+                    "hands": s.hands_played,
+                    "vpip": format!("{:.1}", s.vpip),
+                    "pfr": format!("{:.1}", s.pfr),
+                    "steal_pct": format!("{:.1}", s.steal_pct),
+                    "fold_to_steal_bb": format!("{:.1}", s.fold_to_steal_bb),
+                }),
+                None => serde_json::json!({
+                    "phase": label,
+                    "hands": 0,
+                }),
+            }
+        };
 
         let pre_bubble_json = format_phase(&pre_bubble_stats, "pre_bubble");
         let bubble_json = format_phase(&bubble_stats, "bubble");

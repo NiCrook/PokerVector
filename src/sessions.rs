@@ -50,10 +50,19 @@ fn parse_timestamp(ts: &str) -> Option<NaiveDateTime> {
 
 fn stakes_string(hand: &Hand) -> String {
     match &hand.game_type {
-        GameType::Cash { small_blind, big_blind, .. } => {
+        GameType::Cash {
+            small_blind,
+            big_blind,
+            ..
+        } => {
             format!("{}/{}", small_blind, big_blind)
         }
-        GameType::Tournament { level, small_blind, big_blind, .. } => {
+        GameType::Tournament {
+            level,
+            small_blind,
+            big_blind,
+            ..
+        } => {
             format!("L{} {}/{}", level, small_blind, big_blind)
         }
     }
@@ -157,9 +166,10 @@ pub fn detect_table_sessions(hands: &[Hand], hero: &str) -> Vec<TableSession> {
 
         for hand in table_hands {
             if let Some(last) = current.last() {
-                if let (Some(prev_ts), Some(cur_ts)) =
-                    (parse_timestamp(&last.timestamp), parse_timestamp(&hand.timestamp))
-                {
+                if let (Some(prev_ts), Some(cur_ts)) = (
+                    parse_timestamp(&last.timestamp),
+                    parse_timestamp(&hand.timestamp),
+                ) {
                     let gap = (cur_ts - prev_ts).num_minutes();
                     if gap > TABLE_SESSION_GAP_MINUTES {
                         // Flush current session
@@ -181,8 +191,14 @@ pub fn detect_table_sessions(hands: &[Hand], hero: &str) -> Vec<TableSession> {
 
 fn build_table_session(table_name: &str, hands: &[&Hand]) -> TableSession {
     let stakes = hands.first().map(|h| stakes_string(h)).unwrap_or_default();
-    let start_time = hands.first().map(|h| h.timestamp.clone()).unwrap_or_default();
-    let end_time = hands.last().map(|h| h.timestamp.clone()).unwrap_or_default();
+    let start_time = hands
+        .first()
+        .map(|h| h.timestamp.clone())
+        .unwrap_or_default();
+    let end_time = hands
+        .last()
+        .map(|h| h.timestamp.clone())
+        .unwrap_or_default();
     let net_profit: f64 = hands.iter().map(|h| hero_profit(h)).sum();
     let owned_hands: Vec<Hand> = hands.iter().map(|h| (*h).clone()).collect();
 
@@ -321,18 +337,14 @@ pub fn review_session(session: &Session, hero: &str, summaries: &[(u64, String)]
     let player_stats = stats::calculate_stats(&all_hands, hero);
 
     // Find notable hands (top 3 wins, top 3 losses)
-    let mut hand_profits: Vec<(u64, f64)> = all_hands
-        .iter()
-        .map(|h| (h.id, hero_profit(h)))
-        .collect();
+    let mut hand_profits: Vec<(u64, f64)> =
+        all_hands.iter().map(|h| (h.id, hero_profit(h))).collect();
 
     // Sort by profit descending for wins
     hand_profits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-    let summary_map: std::collections::HashMap<u64, &str> = summaries
-        .iter()
-        .map(|(id, s)| (*id, s.as_str()))
-        .collect();
+    let summary_map: std::collections::HashMap<u64, &str> =
+        summaries.iter().map(|(id, s)| (*id, s.as_str())).collect();
 
     let mut notable = Vec::new();
 
@@ -390,8 +402,14 @@ mod tests {
             is_hi_lo: false,
             is_bomb_pot: false,
             game_type: GameType::Cash {
-                small_blind: Money { amount: 0.01, currency: Currency::USD },
-                big_blind: Money { amount: 0.02, currency: Currency::USD },
+                small_blind: Money {
+                    amount: 0.01,
+                    currency: Currency::USD,
+                },
+                big_blind: Money {
+                    amount: 0.02,
+                    currency: Currency::USD,
+                },
                 ante: None,
             },
             timestamp: timestamp.to_string(),
@@ -402,7 +420,10 @@ mod tests {
                 Player {
                     seat: 1,
                     name: hero.to_string(),
-                    stack: Money { amount: 2.0, currency: Currency::USD },
+                    stack: Money {
+                        amount: 2.0,
+                        currency: Currency::USD,
+                    },
                     position: Some(Position::BTN),
                     is_hero: true,
                     is_sitting_out: false,
@@ -410,7 +431,10 @@ mod tests {
                 Player {
                     seat: 2,
                     name: "Villain".to_string(),
-                    stack: Money { amount: 2.0, currency: Currency::USD },
+                    stack: Money {
+                        amount: 2.0,
+                        currency: Currency::USD,
+                    },
                     position: Some(Position::BB),
                     is_hero: false,
                     is_sitting_out: false,
@@ -421,7 +445,10 @@ mod tests {
             hero_cards: vec![],
             actions: vec![],
             board: vec![],
-            pot: Some(Money { amount: 0.04, currency: Currency::USD }),
+            pot: Some(Money {
+                amount: 0.04,
+                currency: Currency::USD,
+            }),
             rake: None,
             result: HandResult {
                 winners: vec![],
@@ -500,9 +527,7 @@ mod tests {
 
     #[test]
     fn test_single_hand_session() {
-        let hands = vec![
-            make_cash_hand(1, "Table1", "2026/02/15 10:00:00", "Hero"),
-        ];
+        let hands = vec![make_cash_hand(1, "Table1", "2026/02/15 10:00:00", "Hero")];
 
         let sessions = detect_sessions(hands, "Hero");
         assert_eq!(sessions.len(), 1);
@@ -516,8 +541,14 @@ mod tests {
         hand.game_type = GameType::Tournament {
             tournament_id: 123,
             level: 1,
-            small_blind: Money { amount: 10.0, currency: Currency::Chips },
-            big_blind: Money { amount: 20.0, currency: Currency::Chips },
+            small_blind: Money {
+                amount: 10.0,
+                currency: Currency::Chips,
+            },
+            big_blind: Money {
+                amount: 20.0,
+                currency: Currency::Chips,
+            },
             ante: None,
         };
 
@@ -532,7 +563,10 @@ mod tests {
             Action {
                 player: "Hero".to_string(),
                 action_type: ActionType::PostSmallBlind {
-                    amount: Money { amount: 0.01, currency: Currency::USD },
+                    amount: Money {
+                        amount: 0.01,
+                        currency: Currency::USD,
+                    },
                     all_in: false,
                 },
                 street: Street::Preflop,
@@ -540,8 +574,14 @@ mod tests {
             Action {
                 player: "Hero".to_string(),
                 action_type: ActionType::Raise {
-                    amount: Money { amount: 0.04, currency: Currency::USD },
-                    to: Money { amount: 0.06, currency: Currency::USD },
+                    amount: Money {
+                        amount: 0.04,
+                        currency: Currency::USD,
+                    },
+                    to: Money {
+                        amount: 0.06,
+                        currency: Currency::USD,
+                    },
                     all_in: false,
                 },
                 street: Street::Preflop,
@@ -549,7 +589,10 @@ mod tests {
             Action {
                 player: "Hero".to_string(),
                 action_type: ActionType::Collected {
-                    amount: Money { amount: 0.12, currency: Currency::USD },
+                    amount: Money {
+                        amount: 0.12,
+                        currency: Currency::USD,
+                    },
                     pot: "Main pot".to_string(),
                 },
                 street: Street::Preflop,

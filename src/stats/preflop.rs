@@ -261,11 +261,20 @@ pub(crate) fn cold_call_analysis(hand: &Hand, player: &str) -> (bool, bool) {
         if action.street != Street::Preflop {
             continue;
         }
-        if matches!(action.action_type, ActionType::PostSmallBlind { .. } | ActionType::PostBigBlind { .. } | ActionType::PostAnte { .. } | ActionType::PostBlind { .. }) {
+        if matches!(
+            action.action_type,
+            ActionType::PostSmallBlind { .. }
+                | ActionType::PostBigBlind { .. }
+                | ActionType::PostAnte { .. }
+                | ActionType::PostBlind { .. }
+        ) {
             continue;
         }
 
-        if matches!(action.action_type, ActionType::Raise { .. } | ActionType::Bet { .. }) {
+        if matches!(
+            action.action_type,
+            ActionType::Raise { .. } | ActionType::Bet { .. }
+        ) {
             if action.player == player {
                 return (false, false); // Player raised first — not a cold call scenario
             }
@@ -296,18 +305,60 @@ mod tests {
         // Hand 1: Villain raises, hero 3-bets
         let mut h1 = base_hand();
         h1.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.06),
+                    to: make_money(0.18),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
-        h1.result = HandResult { winners: vec![Winner { player: "Hero".to_string(), amount: make_money(0.09), pot: "Main pot".to_string() }], hero_result: HeroResult::Won };
+        h1.result = HandResult {
+            winners: vec![Winner {
+                player: "Hero".to_string(),
+                amount: make_money(0.09),
+                pot: "Main pot".to_string(),
+            }],
+            hero_result: HeroResult::Won,
+        };
 
         // Hand 2: Villain raises, hero calls (had opportunity but didn't 3-bet)
         let mut h2 = base_hand();
         h2.id = 2;
         h2.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[h1, h2], "Hero");
@@ -320,9 +371,29 @@ mod tests {
         // Hero raises, villain 3-bets, hero folds
         let mut h1 = base_hand();
         h1.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.06),
+                    to: make_money(0.18),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[h1], "Hero");
@@ -334,12 +405,47 @@ mod tests {
         // Hero opens, Villain 3-bets, Hero 4-bets
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.18), to: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.06),
+                    to: make_money(0.18),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.18),
+                    to: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
-        hand.result = HandResult { winners: vec![Winner { player: "Hero".to_string(), amount: make_money(0.21), pot: "Main pot".to_string() }], hero_result: HeroResult::Won };
+        hand.result = HandResult {
+            winners: vec![Winner {
+                player: "Hero".to_string(),
+                amount: make_money(0.21),
+                pot: "Main pot".to_string(),
+            }],
+            hero_result: HeroResult::Won,
+        };
 
         let stats = calculate_stats(&[hand], "Hero");
         assert!((stats.four_bet_pct - 100.0).abs() < 0.01);
@@ -350,8 +456,23 @@ mod tests {
         // Hero opens, Villain calls (no 3-bet, so no 4-bet opportunity)
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: make_money(0.05), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.05),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");
@@ -363,10 +484,38 @@ mod tests {
         // Villain opens, Hero 3-bets, Villain 4-bets, Hero folds
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.18), to: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.06),
+                    to: make_money(0.18),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.18),
+                    to: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");
@@ -378,10 +527,41 @@ mod tests {
         // Villain opens, Hero 3-bets, Villain 4-bets, Hero calls (doesn't fold)
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.18), to: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(0.32), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.06),
+                    to: make_money(0.18),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.18),
+                    to: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.32),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");
@@ -397,14 +577,63 @@ mod tests {
         hand.players[1].position = Some(Position::BB);
         hand.players[2].position = Some(Position::BTN);
         hand.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "CO_Player".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(2.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Call { amount: make_money(2.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(2.50), to: make_money(10.00), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "CO_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "CO_Player".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(1.00),
+                    to: make_money(2.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(2.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(2.50),
+                    to: make_money(10.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "CO_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");
@@ -416,14 +645,59 @@ mod tests {
         // Villain raises, Hero calls (cold call — no prior action from Hero).
         let mut hand = sixmax_hand();
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "LJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "HJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "CO_Player".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(2.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(2.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "LJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "HJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "CO_Player".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(1.00),
+                    to: make_money(2.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(2.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");

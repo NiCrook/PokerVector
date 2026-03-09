@@ -5,7 +5,9 @@ use serde::Deserialize;
 pub struct SearchHandsParams {
     #[schemars(description = "Natural language search query (e.g. 'hero 3-bets from the button')")]
     pub query: String,
-    #[schemars(description = "Search mode: 'semantic' (default, matches narrative descriptions) or 'action' (matches betting line structure)")]
+    #[schemars(
+        description = "Search mode: 'semantic' (default, matches narrative descriptions) or 'action' (matches betting line structure)"
+    )]
     pub search_mode: Option<String>,
     #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
     pub position: Option<String>,
@@ -25,11 +27,17 @@ pub struct SearchHandsParams {
     pub betting_limit: Option<String>,
     #[schemars(description = "Max results to return (default 10)")]
     pub limit: Option<u64>,
-    #[schemars(description = "Offset for pagination (default 0). Use with limit to page through results.")]
+    #[schemars(
+        description = "Offset for pagination (default 0). Use with limit to page through results."
+    )]
     pub offset: Option<u64>,
-    #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15' or '2024-01-15 00:00:00')")]
+    #[schemars(
+        description = "Filter to hands on or after this date (e.g. '2024-01-15' or '2024-01-15 00:00:00')"
+    )]
     pub from_date: Option<String>,
-    #[schemars(description = "Filter to hands on or before this date (e.g. '2024-02-15' or '2024-02-15 23:59:59')")]
+    #[schemars(
+        description = "Filter to hands on or before this date (e.g. '2024-02-15' or '2024-02-15 23:59:59')"
+    )]
     pub to_date: Option<String>,
     #[schemars(description = "Filter by user-applied tag (e.g. 'bad call', 'review later')")]
     pub tag: Option<String>,
@@ -39,7 +47,9 @@ pub struct SearchHandsParams {
 pub struct SearchSimilarParams {
     #[schemars(description = "Hand ID to find similar hands for")]
     pub hand_id: u64,
-    #[schemars(description = "Similarity mode: 'action' (default, matches betting structure), 'semantic' (matches narrative)")]
+    #[schemars(
+        description = "Similarity mode: 'action' (default, matches betting structure), 'semantic' (matches narrative)"
+    )]
     pub mode: Option<String>,
     #[schemars(description = "Max results (default 10)")]
     pub limit: Option<u64>,
@@ -172,7 +182,9 @@ pub struct GetBluffCandidatesParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ExportHandsParams {
-    #[schemars(description = "Export format: 'csv' (default) or 'raw' (original hand history text)")]
+    #[schemars(
+        description = "Export format: 'csv' (default) or 'raw' (original hand history text)"
+    )]
     pub format: Option<String>,
     #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
     pub position: Option<String>,
@@ -202,7 +214,9 @@ pub struct GetHandAsReplayerParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct QuizHandParams {
-    #[schemars(description = "Specific hand ID to quiz on (optional — picks a random qualifying hand if omitted)")]
+    #[schemars(
+        description = "Specific hand ID to quiz on (optional — picks a random qualifying hand if omitted)"
+    )]
     pub hand_id: Option<u64>,
     #[schemars(description = "Filter by hero position: BTN, CO, HJ, LJ, SB, BB")]
     pub position: Option<String>,
@@ -210,7 +224,9 @@ pub struct QuizHandParams {
     pub pot_type: Option<String>,
     #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
     pub stakes: Option<String>,
-    #[schemars(description = "Target street for the quiz decision (default: auto-detect last hero decision street)")]
+    #[schemars(
+        description = "Target street for the quiz decision (default: auto-detect last hero decision street)"
+    )]
     pub street: Option<String>,
 }
 
@@ -310,7 +326,9 @@ pub struct GetHandContextParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct QueryHandsParams {
-    #[schemars(description = "Raw SQL WHERE clause to filter hands (e.g. \"stakes = '$0.05/$0.10' AND hero_position = 'BTN'\"). Columns: id, game_type, variant, betting_limit, stakes, hero, hero_position, hero_cards, hero_result, board, pot_type, opponent_names, timestamp, is_bomb_pot, is_hi_lo, table_size, num_players, went_to_showdown, tournament_id, pot_amount")]
+    #[schemars(
+        description = "Raw SQL WHERE clause to filter hands (e.g. \"stakes = '$0.05/$0.10' AND hero_position = 'BTN'\"). Columns: id, game_type, variant, betting_limit, stakes, hero, hero_position, hero_cards, hero_result, board, pot_type, opponent_names, timestamp, is_bomb_pot, is_hi_lo, table_size, num_players, went_to_showdown, tournament_id, pot_amount"
+    )]
     pub filter: String,
     #[schemars(description = "Max results to return (default 50)")]
     pub limit: Option<u64>,
@@ -364,9 +382,13 @@ pub struct GetVillainProfileParams {
     pub stakes: Option<String>,
     #[schemars(description = "Filter by game type: cash or tournament")]
     pub game_type: Option<String>,
-    #[schemars(description = "Include pool averages alongside villain stats for context (default false). Shows how this villain compares to the average opponent.")]
+    #[schemars(
+        description = "Include pool averages alongside villain stats for context (default false). Shows how this villain compares to the average opponent."
+    )]
     pub compare_to_pool: Option<bool>,
-    #[schemars(description = "Minimum hands per player for pool stats (default 30). Only used when compare_to_pool is true.")]
+    #[schemars(
+        description = "Minimum hands per player for pool stats (default 30). Only used when compare_to_pool is true."
+    )]
     pub pool_min_hands: Option<u64>,
 }
 
@@ -385,7 +407,9 @@ pub struct GetDatabaseHealthParams {}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct FindLeaksParams {
-    #[schemars(description = "Table size for baseline ranges: '6max' (default) or 'full_ring' (9-max)")]
+    #[schemars(
+        description = "Table size for baseline ranges: '6max' (default) or 'full_ring' (9-max)"
+    )]
     pub table_size: Option<String>,
     #[schemars(description = "Hero name override (defaults to configured hero)")]
     pub hero: Option<String>,
@@ -405,9 +429,13 @@ pub struct FindLeaksParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct DetectTiltParams {
-    #[schemars(description = "Minimum deviation from baseline to flag (percentage points, default 10). Lower values catch more subtle tilt.")]
+    #[schemars(
+        description = "Minimum deviation from baseline to flag (percentage points, default 10). Lower values catch more subtle tilt."
+    )]
     pub threshold: Option<f64>,
-    #[schemars(description = "Minimum hands per session to analyze (default 20). Sessions with fewer hands are skipped.")]
+    #[schemars(
+        description = "Minimum hands per session to analyze (default 20). Sessions with fewer hands are skipped."
+    )]
     pub min_hands: Option<u64>,
     #[schemars(description = "Hero name override (defaults to configured hero)")]
     pub hero: Option<String>,
@@ -421,7 +449,9 @@ pub struct DetectTiltParams {
 pub struct GetStreetStatsParams {
     #[schemars(description = "Player name to analyze (defaults to hero)")]
     pub player: Option<String>,
-    #[schemars(description = "Filter by villain name (only count hands where this villain was present)")]
+    #[schemars(
+        description = "Filter by villain name (only count hands where this villain was present)"
+    )]
     pub villain: Option<String>,
     #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
     pub stakes: Option<String>,
@@ -441,7 +471,9 @@ pub struct GetStreetStatsParams {
 pub struct GetSizingProfileParams {
     #[schemars(description = "Player name to analyze (defaults to hero)")]
     pub player: Option<String>,
-    #[schemars(description = "Filter by villain name (only count hands where this villain was present)")]
+    #[schemars(
+        description = "Filter by villain name (only count hands where this villain was present)"
+    )]
     pub villain: Option<String>,
     #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02')")]
     pub stakes: Option<String>,
@@ -457,7 +489,9 @@ pub struct GetSizingProfileParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetPoolStatsParams {
-    #[schemars(description = "Filter by stakes (e.g. '$0.01/$0.02'). Highly recommended — pool behavior varies drastically by stakes.")]
+    #[schemars(
+        description = "Filter by stakes (e.g. '$0.01/$0.02'). Highly recommended — pool behavior varies drastically by stakes."
+    )]
     pub stakes: Option<String>,
     #[schemars(description = "Filter by game type: cash or tournament")]
     pub game_type: Option<String>,
@@ -465,7 +499,9 @@ pub struct GetPoolStatsParams {
     pub variant: Option<String>,
     #[schemars(description = "Filter by betting limit: no_limit, pot_limit, fixed_limit")]
     pub betting_limit: Option<String>,
-    #[schemars(description = "Minimum hands a player must have to be included in the pool (default 30). Lower values include more players but noisier stats.")]
+    #[schemars(
+        description = "Minimum hands a player must have to be included in the pool (default 30). Lower values include more players but noisier stats."
+    )]
     pub min_hands: Option<u64>,
     #[schemars(description = "Hero name override (defaults to configured hero)")]
     pub hero: Option<String>,
@@ -517,7 +553,9 @@ pub struct GetRangeAnalysisParams {
     pub stakes: Option<String>,
     #[schemars(description = "Filter by game type: cash or tournament")]
     pub game_type: Option<String>,
-    #[schemars(description = "Filter by variant: holdem (default). Only Hold'em hands have 2-card combos.")]
+    #[schemars(
+        description = "Filter by variant: holdem (default). Only Hold'em hands have 2-card combos."
+    )]
     pub variant: Option<String>,
     #[schemars(description = "Filter to hands on or after this date (e.g. '2024-01-15')")]
     pub from_date: Option<String>,
@@ -577,7 +615,9 @@ pub struct ClusterVillainsParams {
 pub struct TagHandParams {
     #[schemars(description = "The hand ID to tag")]
     pub hand_id: u64,
-    #[schemars(description = "Tags to add (e.g. 'bad call', 'review later', 'good bluff'). Provide one or more tags.")]
+    #[schemars(
+        description = "Tags to add (e.g. 'bad call', 'review later', 'good bluff'). Provide one or more tags."
+    )]
     pub tags: Vec<String>,
 }
 

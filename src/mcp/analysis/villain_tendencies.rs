@@ -1,6 +1,10 @@
 use crate::types::{ActionType, Hand, Street};
 
-pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str) -> serde_json::Value {
+pub fn get_villain_tendencies_analysis(
+    hands: &[Hand],
+    hero: &str,
+    villain: &str,
+) -> serde_json::Value {
     #[derive(Default)]
     struct Reactions {
         opps: u64,
@@ -57,15 +61,24 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
     let postflop_streets = [Street::Flop, Street::Turn, Street::River];
 
     for hand in hands {
-        let hero_in = hand.players.iter().any(|p| p.name == hero && !p.is_sitting_out);
-        let villain_in = hand.players.iter().any(|p| p.name == villain && !p.is_sitting_out);
-        if !hero_in || !villain_in { continue; }
+        let hero_in = hand
+            .players
+            .iter()
+            .any(|p| p.name == hero && !p.is_sitting_out);
+        let villain_in = hand
+            .players
+            .iter()
+            .any(|p| p.name == villain && !p.is_sitting_out);
+        if !hero_in || !villain_in {
+            continue;
+        }
 
         for &street in &postflop_streets {
-            let street_actions: Vec<&crate::types::Action> = hand.actions.iter()
-                .filter(|a| a.street == street)
-                .collect();
-            if street_actions.is_empty() { continue; }
+            let street_actions: Vec<&crate::types::Action> =
+                hand.actions.iter().filter(|a| a.street == street).collect();
+            if street_actions.is_empty() {
+                continue;
+            }
 
             let mut hero_bet = false;
             let mut hero_checked = false;
@@ -79,11 +92,16 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
                             hero_checked = false;
                         }
                         ActionType::Check => {
-                            if !hero_bet { hero_checked = true; }
+                            if !hero_bet {
+                                hero_checked = true;
+                            }
                         }
                         _ => {}
                     }
-                } else if action.player == villain && (hero_bet || hero_checked) && !villain_responded {
+                } else if action.player == villain
+                    && (hero_bet || hero_checked)
+                    && !villain_responded
+                {
                     villain_responded = true;
 
                     if hero_bet {
@@ -98,7 +116,9 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
                             ActionType::Call { .. } => reactions.calls += 1,
                             ActionType::Fold => reactions.folds += 1,
                             ActionType::Raise { .. } => reactions.raises += 1,
-                            _ => { reactions.opps -= 1; }
+                            _ => {
+                                reactions.opps -= 1;
+                            }
                         }
                     } else if hero_checked {
                         let initiatives = match street {
@@ -109,9 +129,13 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
                         };
                         initiatives.opps += 1;
                         match &action.action_type {
-                            ActionType::Bet { .. } | ActionType::Raise { .. } => initiatives.bets += 1,
+                            ActionType::Bet { .. } | ActionType::Raise { .. } => {
+                                initiatives.bets += 1
+                            }
                             ActionType::Check => initiatives.checks += 1,
-                            _ => { initiatives.opps -= 1; }
+                            _ => {
+                                initiatives.opps -= 1;
+                            }
                         }
                     }
                 }
@@ -121,27 +145,45 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
         // Multi-street sequences
         {
             let villain_called_flop = hand.actions.iter().any(|a| {
-                a.player == villain && a.street == Street::Flop && matches!(&a.action_type, ActionType::Call { .. })
+                a.player == villain
+                    && a.street == Street::Flop
+                    && matches!(&a.action_type, ActionType::Call { .. })
             });
             if villain_called_flop {
                 let hero_bet_turn = hand.actions.iter().any(|a| {
-                    a.player == hero && a.street == Street::Turn && matches!(&a.action_type, ActionType::Bet { .. } | ActionType::Raise { .. })
+                    a.player == hero
+                        && a.street == Street::Turn
+                        && matches!(
+                            &a.action_type,
+                            ActionType::Bet { .. } | ActionType::Raise { .. }
+                        )
                 });
                 if hero_bet_turn {
                     let mut hero_acted = false;
                     for action in &hand.actions {
-                        if action.street != Street::Turn { continue; }
+                        if action.street != Street::Turn {
+                            continue;
+                        }
                         if action.player == hero {
-                            if matches!(&action.action_type, ActionType::Bet { .. } | ActionType::Raise { .. }) {
+                            if matches!(
+                                &action.action_type,
+                                ActionType::Bet { .. } | ActionType::Raise { .. }
+                            ) {
                                 hero_acted = true;
                             }
                         } else if action.player == villain && hero_acted {
                             vs_turn_barrel_after_flop_call.opps += 1;
                             match &action.action_type {
-                                ActionType::Call { .. } => vs_turn_barrel_after_flop_call.calls += 1,
+                                ActionType::Call { .. } => {
+                                    vs_turn_barrel_after_flop_call.calls += 1
+                                }
                                 ActionType::Fold => vs_turn_barrel_after_flop_call.folds += 1,
-                                ActionType::Raise { .. } => vs_turn_barrel_after_flop_call.raises += 1,
-                                _ => { vs_turn_barrel_after_flop_call.opps -= 1; }
+                                ActionType::Raise { .. } => {
+                                    vs_turn_barrel_after_flop_call.raises += 1
+                                }
+                                _ => {
+                                    vs_turn_barrel_after_flop_call.opps -= 1;
+                                }
                             }
                             break;
                         }
@@ -150,27 +192,45 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
             }
 
             let villain_called_turn = hand.actions.iter().any(|a| {
-                a.player == villain && a.street == Street::Turn && matches!(&a.action_type, ActionType::Call { .. })
+                a.player == villain
+                    && a.street == Street::Turn
+                    && matches!(&a.action_type, ActionType::Call { .. })
             });
             if villain_called_turn {
                 let hero_bet_river = hand.actions.iter().any(|a| {
-                    a.player == hero && a.street == Street::River && matches!(&a.action_type, ActionType::Bet { .. } | ActionType::Raise { .. })
+                    a.player == hero
+                        && a.street == Street::River
+                        && matches!(
+                            &a.action_type,
+                            ActionType::Bet { .. } | ActionType::Raise { .. }
+                        )
                 });
                 if hero_bet_river {
                     let mut hero_acted = false;
                     for action in &hand.actions {
-                        if action.street != Street::River { continue; }
+                        if action.street != Street::River {
+                            continue;
+                        }
                         if action.player == hero {
-                            if matches!(&action.action_type, ActionType::Bet { .. } | ActionType::Raise { .. }) {
+                            if matches!(
+                                &action.action_type,
+                                ActionType::Bet { .. } | ActionType::Raise { .. }
+                            ) {
                                 hero_acted = true;
                             }
                         } else if action.player == villain && hero_acted {
                             vs_river_barrel_after_turn_call.opps += 1;
                             match &action.action_type {
-                                ActionType::Call { .. } => vs_river_barrel_after_turn_call.calls += 1,
+                                ActionType::Call { .. } => {
+                                    vs_river_barrel_after_turn_call.calls += 1
+                                }
                                 ActionType::Fold => vs_river_barrel_after_turn_call.folds += 1,
-                                ActionType::Raise { .. } => vs_river_barrel_after_turn_call.raises += 1,
-                                _ => { vs_river_barrel_after_turn_call.opps -= 1; }
+                                ActionType::Raise { .. } => {
+                                    vs_river_barrel_after_turn_call.raises += 1
+                                }
+                                _ => {
+                                    vs_river_barrel_after_turn_call.opps -= 1;
+                                }
                             }
                             break;
                         }
@@ -185,7 +245,9 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
             let mut raise_count = 0u32;
             let mut villain_preflop_responded = false;
             for action in &hand.actions {
-                if action.street != Street::Preflop { continue; }
+                if action.street != Street::Preflop {
+                    continue;
+                }
                 if action.player == hero {
                     if matches!(&action.action_type, ActionType::Raise { .. }) {
                         hero_raised = true;
@@ -193,23 +255,34 @@ pub fn get_villain_tendencies_analysis(hands: &[Hand], hero: &str, villain: &str
                     }
                 } else if action.player == villain && hero_raised && !villain_preflop_responded {
                     villain_preflop_responded = true;
-                    let target = if raise_count >= 2 { &mut vs_three_bet } else { &mut vs_preflop_raise };
+                    let target = if raise_count >= 2 {
+                        &mut vs_three_bet
+                    } else {
+                        &mut vs_preflop_raise
+                    };
                     target.opps += 1;
                     match &action.action_type {
                         ActionType::Call { .. } => target.calls += 1,
                         ActionType::Fold => target.folds += 1,
                         ActionType::Raise { .. } => target.raises += 1,
-                        _ => { target.opps -= 1; }
+                        _ => {
+                            target.opps -= 1;
+                        }
                     }
                 }
             }
         }
     }
 
-    let total_hands = hands.iter()
+    let total_hands = hands
+        .iter()
         .filter(|h| {
-            h.players.iter().any(|p| p.name == hero && !p.is_sitting_out)
-            && h.players.iter().any(|p| p.name == villain && !p.is_sitting_out)
+            h.players
+                .iter()
+                .any(|p| p.name == hero && !p.is_sitting_out)
+                && h.players
+                    .iter()
+                    .any(|p| p.name == villain && !p.is_sitting_out)
         })
         .count();
 

@@ -6,41 +6,69 @@ use crate::types::{ActionType, Card, Hand, Street};
 use crate::mcp::helpers::rank_order;
 
 fn suit_texture(board: &[Card]) -> &'static str {
-    if board.len() < 3 { return "unknown"; }
+    if board.len() < 3 {
+        return "unknown";
+    }
     let s1 = board[0].suit;
     let s2 = board[1].suit;
     let s3 = board[2].suit;
-    if s1 == s2 && s2 == s3 { "monotone" }
-    else if s1 != s2 && s2 != s3 && s1 != s3 { "rainbow" }
-    else { "two-tone" }
+    if s1 == s2 && s2 == s3 {
+        "monotone"
+    } else if s1 != s2 && s2 != s3 && s1 != s3 {
+        "rainbow"
+    } else {
+        "two-tone"
+    }
 }
 
 fn is_paired(board: &[Card]) -> bool {
-    if board.len() < 3 { return false; }
-    let r = [rank_order(board[0].rank), rank_order(board[1].rank), rank_order(board[2].rank)];
+    if board.len() < 3 {
+        return false;
+    }
+    let r = [
+        rank_order(board[0].rank),
+        rank_order(board[1].rank),
+        rank_order(board[2].rank),
+    ];
     r[0] == r[1] || r[1] == r[2] || r[0] == r[2]
 }
 
 fn is_connected(board: &[Card]) -> bool {
-    if board.len() < 3 { return false; }
-    let mut r = [rank_order(board[0].rank), rank_order(board[1].rank), rank_order(board[2].rank)];
+    if board.len() < 3 {
+        return false;
+    }
+    let mut r = [
+        rank_order(board[0].rank),
+        rank_order(board[1].rank),
+        rank_order(board[2].rank),
+    ];
     r.sort();
     let spread = r[2] - r[0];
     spread <= 4
 }
 
 fn highness(board: &[Card]) -> &'static str {
-    if board.len() < 3 { return "unknown"; }
-    let high_cards = board.iter().take(3)
+    if board.len() < 3 {
+        return "unknown";
+    }
+    let high_cards = board
+        .iter()
+        .take(3)
         .filter(|c| rank_order(c.rank) >= 10)
         .count();
-    if high_cards >= 2 { "high" }
-    else if high_cards == 0 { "low" }
-    else { "mid" }
+    if high_cards >= 2 {
+        "high"
+    } else if high_cards == 0 {
+        "low"
+    } else {
+        "mid"
+    }
 }
 
 fn wetness(board: &[Card]) -> &'static str {
-    if board.len() < 3 { return "unknown"; }
+    if board.len() < 3 {
+        return "unknown";
+    }
     let flush_draw = {
         let s1 = board[0].suit;
         let s2 = board[1].suit;
@@ -48,17 +76,28 @@ fn wetness(board: &[Card]) -> &'static str {
         s1 == s2 || s2 == s3 || s1 == s3
     };
     let straight_draw = is_connected(board);
-    if flush_draw && straight_draw { "very wet" }
-    else if flush_draw || straight_draw { "wet" }
-    else { "dry" }
+    if flush_draw && straight_draw {
+        "very wet"
+    } else if flush_draw || straight_draw {
+        "wet"
+    } else {
+        "dry"
+    }
 }
 
 pub fn get_board_stats_analysis(hands: &[Hand], hero: &str) -> serde_json::Value {
     let texture_names = [
-        "monotone", "two-tone", "rainbow",
-        "paired", "connected",
-        "high", "mid", "low",
-        "dry", "wet", "very wet",
+        "monotone",
+        "two-tone",
+        "rainbow",
+        "paired",
+        "connected",
+        "high",
+        "mid",
+        "low",
+        "dry",
+        "wet",
+        "very wet",
     ];
 
     struct TextureBucket {
@@ -70,7 +109,13 @@ pub fn get_board_stats_analysis(hands: &[Hand], hero: &str) -> serde_json::Value
     }
     impl TextureBucket {
         fn new() -> Self {
-            Self { hands: 0, wins: 0, profit_bb: 0.0, cbet_opps: 0, cbet_count: 0 }
+            Self {
+                hands: 0,
+                wins: 0,
+                profit_bb: 0.0,
+                cbet_opps: 0,
+                cbet_count: 0,
+            }
         }
     }
 
@@ -81,14 +126,24 @@ pub fn get_board_stats_analysis(hands: &[Hand], hero: &str) -> serde_json::Value
     let mut total_flop_hands = 0u64;
 
     for hand in hands {
-        let in_hand = hand.players.iter().any(|p| p.name == hero && !p.is_sitting_out);
-        if !in_hand { continue; }
-        if hand.board.len() < 3 { continue; }
+        let in_hand = hand
+            .players
+            .iter()
+            .any(|p| p.name == hero && !p.is_sitting_out);
+        if !in_hand {
+            continue;
+        }
+        if hand.board.len() < 3 {
+            continue;
+        }
 
-        let hero_saw_flop = hand.actions.iter().any(|a| {
-            a.player == hero && a.street == Street::Flop
-        });
-        if !hero_saw_flop { continue; }
+        let hero_saw_flop = hand
+            .actions
+            .iter()
+            .any(|a| a.player == hero && a.street == Street::Flop);
+        if !hero_saw_flop {
+            continue;
+        }
 
         total_flop_hands += 1;
 
@@ -98,14 +153,17 @@ pub fn get_board_stats_analysis(hands: &[Hand], hero: &str) -> serde_json::Value
         let won = profit > 0.0;
 
         let hero_was_pfr = hand.actions.iter().any(|a| {
-            a.player == hero && a.street == Street::Preflop
+            a.player == hero
+                && a.street == Street::Preflop
                 && matches!(&a.action_type, ActionType::Raise { .. })
         });
 
-        let hero_cbet = hero_was_pfr && hand.actions.iter().any(|a| {
-            a.player == hero && a.street == Street::Flop
-                && matches!(&a.action_type, ActionType::Bet { .. })
-        });
+        let hero_cbet = hero_was_pfr
+            && hand.actions.iter().any(|a| {
+                a.player == hero
+                    && a.street == Street::Flop
+                    && matches!(&a.action_type, ActionType::Bet { .. })
+            });
 
         let flop = &hand.board[..3];
         let suit_tex = suit_texture(flop);
@@ -117,32 +175,49 @@ pub fn get_board_stats_analysis(hands: &[Hand], hero: &str) -> serde_json::Value
         let mut apply = |name: &'static str| {
             let b = buckets.get_mut(name).unwrap();
             b.hands += 1;
-            if won { b.wins += 1; }
+            if won {
+                b.wins += 1;
+            }
             b.profit_bb += profit_bb_val;
             if hero_was_pfr {
                 b.cbet_opps += 1;
-                if hero_cbet { b.cbet_count += 1; }
+                if hero_cbet {
+                    b.cbet_count += 1;
+                }
             }
         };
 
         apply(suit_tex);
-        if paired { apply("paired"); }
-        if connected { apply("connected"); }
+        if paired {
+            apply("paired");
+        }
+        if connected {
+            apply("connected");
+        }
         apply(high_tex);
         apply(wet_tex);
     }
 
     let pct = |n: u64, d: u64| -> f64 {
-        if d > 0 { n as f64 / d as f64 * 100.0 } else { 0.0 }
+        if d > 0 {
+            n as f64 / d as f64 * 100.0
+        } else {
+            0.0
+        }
     };
 
-    let mut textures: Vec<serde_json::Value> = texture_names.iter()
+    let mut textures: Vec<serde_json::Value> = texture_names
+        .iter()
         .filter_map(|&name| {
             let b = buckets.get(name).unwrap();
-            if b.hands == 0 { return None; }
+            if b.hands == 0 {
+                return None;
+            }
             let winrate = if b.hands > 0 {
                 b.profit_bb / b.hands as f64 * 100.0
-            } else { 0.0 };
+            } else {
+                0.0
+            };
             Some(serde_json::json!({
                 "texture": name,
                 "hands": b.hands,

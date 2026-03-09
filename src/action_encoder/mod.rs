@@ -130,11 +130,8 @@ pub fn encode_action_sequence(hand: &Hand, hero: &str) -> String {
     let mut preflop_aggressor: Option<String> = None;
 
     for &street in streets {
-        let street_actions: Vec<&Action> = hand
-            .actions
-            .iter()
-            .filter(|a| a.street == street)
-            .collect();
+        let street_actions: Vec<&Action> =
+            hand.actions.iter().filter(|a| a.street == street).collect();
 
         if street_actions.is_empty() {
             continue;
@@ -207,7 +204,12 @@ pub fn encode_action_sequence(hand: &Hand, hero: &str) -> String {
         if board_str.is_empty() {
             lines.push(format!("{}: {}", label, street_tokens.join(" ")));
         } else {
-            lines.push(format!("{}{}: {}", label, board_str, street_tokens.join(" ")));
+            lines.push(format!(
+                "{}{}: {}",
+                label,
+                board_str,
+                street_tokens.join(" ")
+            ));
         }
     }
 

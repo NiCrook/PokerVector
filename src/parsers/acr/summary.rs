@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use regex::Regex;
+use std::sync::OnceLock;
 
 use crate::parsers::*;
 use crate::types::*;
@@ -75,11 +75,7 @@ pub(super) fn parse_total_pot_line(
     }
 }
 
-pub(super) fn parse_summary_seat_line(
-    line: &str,
-    currency: Currency,
-    winners: &mut Vec<Winner>,
-) {
+pub(super) fn parse_summary_seat_line(line: &str, currency: Currency, winners: &mut Vec<Winner>) {
     // Patterns:
     // "Seat N: NAME showed [XX XX] and won $X with ..."
     // "Seat N: NAME did not show and won $X"
@@ -90,11 +86,8 @@ pub(super) fn parse_summary_seat_line(
     // Find "and won " in the line
     if let Some(won_pos) = line.find(" and won ") {
         let after_won = &line[won_pos + 9..]; // after " and won "
-        // Extract the amount — it's the next token, possibly followed by " with ..."
-        let amt_str = after_won
-            .split_whitespace()
-            .next()
-            .unwrap_or("");
+                                              // Extract the amount — it's the next token, possibly followed by " with ..."
+        let amt_str = after_won.split_whitespace().next().unwrap_or("");
         let amount = parse_money_or_chips(amt_str, currency);
 
         // Extract player name from "Seat N: NAME ..." or "Seat N: NAME (pos) ..."
@@ -157,7 +150,10 @@ pub(super) fn determine_hero_result(
     }
 
     // Check if hero folded
-    if actions.iter().any(|a| a.player == hero && a.action_type == ActionType::Fold) {
+    if actions
+        .iter()
+        .any(|a| a.player == hero && a.action_type == ActionType::Fold)
+    {
         return HeroResult::Folded;
     }
 

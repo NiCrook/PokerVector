@@ -259,9 +259,8 @@ impl PokerVectorMcp {
             }
 
             // Emit every hand for small datasets, sample for large ones
-            let emit = hands.len() <= 500
-                || i % (hands.len() / 500).max(1) == 0
-                || i == hands.len() - 1;
+            let emit =
+                hands.len() <= 500 || i % (hands.len() / 500).max(1) == 0 || i == hands.len() - 1;
             if emit {
                 points.push(serde_json::json!({
                     "hand_number": i + 1,

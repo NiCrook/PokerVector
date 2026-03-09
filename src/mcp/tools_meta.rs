@@ -30,10 +30,9 @@ impl PokerVectorMcp {
 
         if let Some(path_str) = params.path {
             let path = std::path::PathBuf::from(&path_str);
-            let result =
-                importer::import_directory(&path, &self.hero, &mut *embedder, &self.store)
-                    .await
-                    .map_err(|e| mcp_error(&format!("Import failed: {}", e)))?;
+            let result = importer::import_directory(&path, &self.hero, &mut *embedder, &self.store)
+                .await
+                .map_err(|e| mcp_error(&format!("Import failed: {}", e)))?;
             total_imported += result.imported;
             total_skipped += result.skipped;
             total_errors += result.errors;

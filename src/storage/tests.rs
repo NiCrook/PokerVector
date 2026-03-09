@@ -107,7 +107,12 @@ async fn test_upsert_and_get_round_trip() {
 
     let hand = make_test_hand(12345);
     store
-        .upsert_hand(&hand, "test summary", "PRE: HERO_OPEN(3bb)", make_test_embeddings())
+        .upsert_hand(
+            &hand,
+            "test summary",
+            "PRE: HERO_OPEN(3bb)",
+            make_test_embeddings(),
+        )
         .await
         .unwrap();
 

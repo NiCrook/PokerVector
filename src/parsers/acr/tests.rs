@@ -1,5 +1,5 @@
-use super::*;
 use super::header::{parse_header, parse_table_line};
+use super::*;
 
 #[test]
 fn test_parse_cash_header() {
@@ -11,7 +11,11 @@ fn test_parse_cash_header() {
     assert_eq!(h.betting_limit, BettingLimit::NoLimit);
     assert!(!h.is_hi_lo);
     match h.game_type {
-        GameType::Cash { small_blind, big_blind, ante } => {
+        GameType::Cash {
+            small_blind,
+            big_blind,
+            ante,
+        } => {
             assert_eq!(small_blind.amount, 0.01);
             assert_eq!(big_blind.amount, 0.02);
             assert!(ante.is_none());
@@ -22,7 +26,8 @@ fn test_parse_cash_header() {
 
 #[test]
 fn test_parse_cash_header_with_ante() {
-    let line = "Hand #2662089748 - Holdem (No Limit) - $0.01/$0.02, Ante $0.01 - 2026/02/03 03:56:30 UTC";
+    let line =
+        "Hand #2662089748 - Holdem (No Limit) - $0.01/$0.02, Ante $0.01 - 2026/02/03 03:56:30 UTC";
     let h = parse_header(line).unwrap();
     assert_eq!(h.hand_id, 2662089748);
     match h.game_type {
@@ -40,7 +45,13 @@ fn test_parse_tournament_header() {
     let h = parse_header(line).unwrap();
     assert_eq!(h.hand_id, 2653060401);
     match h.game_type {
-        GameType::Tournament { tournament_id, level, small_blind, big_blind, .. } => {
+        GameType::Tournament {
+            tournament_id,
+            level,
+            small_blind,
+            big_blind,
+            ..
+        } => {
             assert_eq!(tournament_id, 34375286);
             assert_eq!(level, 17);
             assert_eq!(small_blind.amount, 2500.0);

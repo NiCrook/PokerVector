@@ -1,5 +1,5 @@
-mod header;
 mod actions;
+mod header;
 mod summary;
 
 #[cfg(test)]
@@ -8,9 +8,11 @@ mod tests;
 use crate::parsers::*;
 use crate::types::*;
 
-use header::{parse_header, parse_table_line, parse_seat_line};
-use actions::{try_parse_action, parse_uncalled_bet, parse_stud_dealt_line};
-use summary::{parse_pot_rake_line, parse_total_pot_line, parse_summary_seat_line, determine_hero_result};
+use actions::{parse_stud_dealt_line, parse_uncalled_bet, try_parse_action};
+use header::{parse_header, parse_seat_line, parse_table_line};
+use summary::{
+    determine_hero_result, parse_pot_rake_line, parse_summary_seat_line, parse_total_pot_line,
+};
 
 pub struct AcrParser;
 
@@ -106,10 +108,7 @@ fn parse_hand(text: &str, hero: &str) -> ParseResult<Hand> {
         }
     }
 
-    let hero_position = players
-        .iter()
-        .find(|p| p.is_hero)
-        .and_then(|p| p.position);
+    let hero_position = players.iter().find(|p| p.is_hero).and_then(|p| p.position);
 
     // --- Pass 2: Parse actions ---
     let mut actions: Vec<Action> = Vec::new();
@@ -245,16 +244,23 @@ fn parse_hand(text: &str, hero: &str) -> ParseResult<Hand> {
 
         // Uncalled bet
         if line.starts_with("Uncalled bet (") {
-            if let Some(action) = parse_uncalled_bet(line, &known_names, current_street(state), currency) {
+            if let Some(action) =
+                parse_uncalled_bet(line, &known_names, current_street(state), currency)
+            {
                 actions.push(action);
             }
             continue;
         }
 
         // Try matching player action lines
-        if let Some(action) = try_parse_action(line, &known_names, current_street(state), currency) {
+        if let Some(action) = try_parse_action(line, &known_names, current_street(state), currency)
+        {
             // Track collected amounts for winners
-            if let ActionType::Collected { ref amount, ref pot } = action.action_type {
+            if let ActionType::Collected {
+                ref amount,
+                ref pot,
+            } = action.action_type
+            {
                 winners.push(Winner {
                     player: action.player.clone(),
                     amount: *amount,

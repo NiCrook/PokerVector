@@ -1,7 +1,10 @@
 use crate::types::*;
 
 pub fn make_money(amount: f64) -> Money {
-    Money { amount, currency: Currency::USD }
+    Money {
+        amount,
+        currency: Currency::USD,
+    }
 }
 
 pub fn make_card(r: char, s: char) -> Card {
@@ -29,9 +32,30 @@ pub fn base_hand() -> Hand {
         table_size: 6,
         button_seat: 1,
         players: vec![
-            Player { seat: 1, name: "Hero".to_string(), stack: make_money(2.00), position: Some(Position::BTN), is_hero: true, is_sitting_out: false },
-            Player { seat: 2, name: "Villain".to_string(), stack: make_money(2.00), position: Some(Position::SB), is_hero: false, is_sitting_out: false },
-            Player { seat: 3, name: "Fish".to_string(), stack: make_money(2.00), position: Some(Position::BB), is_hero: false, is_sitting_out: false },
+            Player {
+                seat: 1,
+                name: "Hero".to_string(),
+                stack: make_money(2.00),
+                position: Some(Position::BTN),
+                is_hero: true,
+                is_sitting_out: false,
+            },
+            Player {
+                seat: 2,
+                name: "Villain".to_string(),
+                stack: make_money(2.00),
+                position: Some(Position::SB),
+                is_hero: false,
+                is_sitting_out: false,
+            },
+            Player {
+                seat: 3,
+                name: "Fish".to_string(),
+                stack: make_money(2.00),
+                position: Some(Position::BB),
+                is_hero: false,
+                is_sitting_out: false,
+            },
         ],
         hero: Some("Hero".to_string()),
         hero_position: Some(Position::BTN),
@@ -69,12 +93,54 @@ pub fn sixmax_hand() -> Hand {
         table_size: 6,
         button_seat: 1,
         players: vec![
-            Player { seat: 1, name: "Hero".to_string(), stack: make_money(100.0), position: Some(Position::BTN), is_hero: true, is_sitting_out: false },
-            Player { seat: 2, name: "Villain".to_string(), stack: make_money(100.0), position: Some(Position::SB), is_hero: false, is_sitting_out: false },
-            Player { seat: 3, name: "Fish".to_string(), stack: make_money(100.0), position: Some(Position::BB), is_hero: false, is_sitting_out: false },
-            Player { seat: 4, name: "CO_Player".to_string(), stack: make_money(100.0), position: Some(Position::CO), is_hero: false, is_sitting_out: false },
-            Player { seat: 5, name: "HJ_Player".to_string(), stack: make_money(100.0), position: Some(Position::HJ), is_hero: false, is_sitting_out: false },
-            Player { seat: 6, name: "LJ_Player".to_string(), stack: make_money(100.0), position: Some(Position::LJ), is_hero: false, is_sitting_out: false },
+            Player {
+                seat: 1,
+                name: "Hero".to_string(),
+                stack: make_money(100.0),
+                position: Some(Position::BTN),
+                is_hero: true,
+                is_sitting_out: false,
+            },
+            Player {
+                seat: 2,
+                name: "Villain".to_string(),
+                stack: make_money(100.0),
+                position: Some(Position::SB),
+                is_hero: false,
+                is_sitting_out: false,
+            },
+            Player {
+                seat: 3,
+                name: "Fish".to_string(),
+                stack: make_money(100.0),
+                position: Some(Position::BB),
+                is_hero: false,
+                is_sitting_out: false,
+            },
+            Player {
+                seat: 4,
+                name: "CO_Player".to_string(),
+                stack: make_money(100.0),
+                position: Some(Position::CO),
+                is_hero: false,
+                is_sitting_out: false,
+            },
+            Player {
+                seat: 5,
+                name: "HJ_Player".to_string(),
+                stack: make_money(100.0),
+                position: Some(Position::HJ),
+                is_hero: false,
+                is_sitting_out: false,
+            },
+            Player {
+                seat: 6,
+                name: "LJ_Player".to_string(),
+                stack: make_money(100.0),
+                position: Some(Position::LJ),
+                is_hero: false,
+                is_sitting_out: false,
+            },
         ],
         hero: Some("Hero".to_string()),
         hero_position: Some(Position::BTN),
@@ -83,7 +149,10 @@ pub fn sixmax_hand() -> Hand {
         board: vec![],
         pot: Some(make_money(1.50)),
         rake: None,
-        result: HandResult { winners: vec![], hero_result: HeroResult::Folded },
+        result: HandResult {
+            winners: vec![],
+            hero_result: HeroResult::Folded,
+        },
         raw_text: String::new(),
         stud_cards: None,
     }

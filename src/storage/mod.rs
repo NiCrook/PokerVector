@@ -129,9 +129,7 @@ fn stakes_str(game_type: &GameType) -> String {
 }
 
 fn went_to_showdown(hand: &Hand) -> bool {
-    hand.actions
-        .iter()
-        .any(|a| a.street == Street::Showdown)
+    hand.actions.iter().any(|a| a.street == Street::Showdown)
 }
 
 fn opponent_names_str(hand: &Hand) -> String {
@@ -198,10 +196,7 @@ fn build_record_batch(
                 .join(" ")
         })
         .collect();
-    let hero_results: Vec<&str> = hands
-        .iter()
-        .map(|h| hero_result_str(&h.result))
-        .collect();
+    let hero_results: Vec<&str> = hands.iter().map(|h| hero_result_str(&h.result)).collect();
     let boards: Vec<String> = hands
         .iter()
         .map(|h| {
@@ -334,10 +329,7 @@ impl VectorStore {
         };
 
         // Migrate: add tags column if missing (existing tables won't have it)
-        let schema = table
-            .schema()
-            .await
-            .context("Failed to get table schema")?;
+        let schema = table.schema().await.context("Failed to get table schema")?;
         if schema.field_with_name("tags").is_err() {
             table
                 .add_columns(
@@ -570,7 +562,11 @@ impl VectorStore {
         // Query in chunks to avoid overly long SQL IN clauses
         let mut existing = HashSet::new();
         for chunk in ids.chunks(500) {
-            let id_list = chunk.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+            let id_list = chunk
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
             let filter = format!("id IN ({})", id_list);
 
             let batches: Vec<RecordBatch> = table
@@ -646,8 +642,8 @@ impl VectorStore {
             .downcast_ref::<StringArray>()
             .unwrap();
 
-        let hand: Hand = serde_json::from_str(json_col.value(0))
-            .context("Failed to deserialize hand JSON")?;
+        let hand: Hand =
+            serde_json::from_str(json_col.value(0)).context("Failed to deserialize hand JSON")?;
 
         Ok(Some(hand))
     }
@@ -698,9 +694,7 @@ impl VectorStore {
     pub async fn scroll_hands(&self, filter: Option<String>) -> Result<Vec<Hand>> {
         let table = self.table();
 
-        let mut query = table
-            .query()
-            .select(Select::columns(&["hand_json"]));
+        let mut query = table.query().select(Select::columns(&["hand_json"]));
 
         if let Some(ref f) = filter {
             query = query.only_if(f);
@@ -736,4 +730,3 @@ impl VectorStore {
 
 #[cfg(test)]
 mod tests;
-

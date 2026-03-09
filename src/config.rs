@@ -102,9 +102,10 @@ pub fn save_config_to(config: &Config, path: &Path) -> Result<()> {
 pub fn merge_scanned(mut config: Config, scanned: Vec<Account>) -> (Config, Vec<Account>) {
     let mut new_accounts = Vec::new();
     for account in scanned {
-        let exists = config.accounts.iter().any(|a| {
-            a.site == account.site && a.hero == account.hero
-        });
+        let exists = config
+            .accounts
+            .iter()
+            .any(|a| a.site == account.site && a.hero == account.hero);
         if !exists {
             new_accounts.push(account.clone());
             config.accounts.push(account);

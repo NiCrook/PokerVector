@@ -511,8 +511,7 @@ impl PokerVectorMcp {
 
             if let Some(action) = hero_action {
                 let bb = stats::big_blind_size(hand);
-                let profit =
-                    stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
+                let profit = stats::hero_collected(hand, hero) - stats::hero_invested(hand, hero);
                 let cards: String = hand
                     .hero_cards
                     .iter()
@@ -601,12 +600,13 @@ impl PokerVectorMcp {
             }
 
             // Find the street hero folded on and what action hero was facing
-            let fold_action = match hand.actions.iter().find(|a| {
-                a.player.as_str() == hero && matches!(a.action_type, ActionType::Fold)
-            }) {
-                Some(a) => a,
-                None => continue,
-            };
+            let fold_action =
+                match hand.actions.iter().find(|a| {
+                    a.player.as_str() == hero && matches!(a.action_type, ActionType::Fold)
+                }) {
+                    Some(a) => a,
+                    None => continue,
+                };
 
             let fold_street = fold_action.street;
             // Only postflop folds
@@ -776,11 +776,8 @@ impl PokerVectorMcp {
             })
         });
 
-        let results: Vec<serde_json::Value> = candidates
-            .into_iter()
-            .take(limit)
-            .map(|(_, v)| v)
-            .collect();
+        let results: Vec<serde_json::Value> =
+            candidates.into_iter().take(limit).map(|(_, v)| v).collect();
 
         let response = serde_json::json!({
             "total_candidates": results.len(),

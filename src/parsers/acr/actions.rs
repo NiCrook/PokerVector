@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use regex::Regex;
+use std::sync::OnceLock;
 
 use crate::parsers::*;
 use crate::types::*;

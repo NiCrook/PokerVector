@@ -51,15 +51,10 @@ impl PokerVectorMcp {
         };
         let limit = params.limit.unwrap_or(10);
 
-        let results = search::search_similar_actions(
-            &self.store,
-            params.hand_id,
-            vector_name,
-            limit,
-            None,
-        )
-        .await
-        .map_err(|e| mcp_error(&format!("Similar search failed: {}", e)))?;
+        let results =
+            search::search_similar_actions(&self.store, params.hand_id, vector_name, limit, None)
+                .await
+                .map_err(|e| mcp_error(&format!("Similar search failed: {}", e)))?;
 
         let json = serde_json::to_string_pretty(&results)
             .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;

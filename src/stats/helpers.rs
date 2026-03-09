@@ -17,7 +17,10 @@ pub(crate) fn hero_saw_street(hand: &Hand, hero: &str, street: Street) -> bool {
     };
 
     // If there are actions on this street or later, hero saw it unless they folded before
-    let hand_reached_street = hand.actions.iter().any(|a| dominated_streets.contains(&a.street));
+    let hand_reached_street = hand
+        .actions
+        .iter()
+        .any(|a| dominated_streets.contains(&a.street));
     if !hand_reached_street {
         return false;
     }
@@ -31,9 +34,9 @@ pub(crate) fn hero_saw_street(hand: &Hand, hero: &str, street: Street) -> bool {
 }
 
 pub(crate) fn hero_folded_before_showdown(hand: &Hand, hero: &str) -> bool {
-    hand.actions.iter().any(|a| {
-        a.player == hero && matches!(a.action_type, ActionType::Fold)
-    })
+    hand.actions
+        .iter()
+        .any(|a| a.player == hero && matches!(a.action_type, ActionType::Fold))
 }
 
 pub(crate) fn street_order(street: Street) -> u8 {
@@ -91,7 +94,10 @@ pub(crate) fn find_preflop_aggressor(hand: &Hand) -> Option<String> {
         if action.street != Street::Preflop {
             continue;
         }
-        if matches!(action.action_type, ActionType::Raise { .. } | ActionType::Bet { .. }) {
+        if matches!(
+            action.action_type,
+            ActionType::Raise { .. } | ActionType::Bet { .. }
+        ) {
             last_raiser = Some(action.player.clone());
         }
     }
@@ -116,8 +122,16 @@ pub(crate) fn position_order_pos(pos: Position) -> u8 {
 
 /// Returns true if player_a is in position relative to player_b (acts later postflop).
 pub(crate) fn is_player_ip(hand: &Hand, player_a: &str, player_b: &str) -> bool {
-    let pos_a = hand.players.iter().find(|p| p.name == player_a).and_then(|p| p.position);
-    let pos_b = hand.players.iter().find(|p| p.name == player_b).and_then(|p| p.position);
+    let pos_a = hand
+        .players
+        .iter()
+        .find(|p| p.name == player_a)
+        .and_then(|p| p.position);
+    let pos_b = hand
+        .players
+        .iter()
+        .find(|p| p.name == player_b)
+        .and_then(|p| p.position);
     match (pos_a, pos_b) {
         (Some(a), Some(b)) => position_order_pos(a) > position_order_pos(b),
         _ => false,

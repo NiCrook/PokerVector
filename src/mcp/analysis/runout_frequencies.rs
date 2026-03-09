@@ -118,10 +118,7 @@ pub fn get_runout_frequencies_analysis(
         }
 
         // Hand must have reached the target street
-        let reached_street = hand
-            .actions
-            .iter()
-            .any(|a| a.street == target_street);
+        let reached_street = hand.actions.iter().any(|a| a.street == target_street);
         if !reached_street {
             continue;
         }

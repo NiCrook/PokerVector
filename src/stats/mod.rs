@@ -132,17 +132,39 @@ pub fn classify_pot_type(hand: &Hand) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::test_helpers::*;
+    use super::*;
 
     #[test]
     fn test_classify_walk() {
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.01), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(0.02), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: make_money(0.01),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: make_money(0.02),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
         assert_eq!(classify_pot_type(&hand), "walk");
     }
@@ -151,9 +173,27 @@ mod tests {
     fn test_classify_limp() {
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(0.02), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: make_money(0.01), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Check, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.02),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.01),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Check,
+                street: Street::Preflop,
+            },
         ];
         assert_eq!(classify_pot_type(&hand), "limp");
     }
@@ -162,9 +202,28 @@ mod tests {
     fn test_classify_srp() {
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: make_money(0.05), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.05),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
         assert_eq!(classify_pot_type(&hand), "SRP");
     }
@@ -173,9 +232,32 @@ mod tests {
     fn test_classify_3bet() {
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(0.12), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.06),
+                    to: make_money(0.18),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.12),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
         assert_eq!(classify_pot_type(&hand), "3bet");
     }
@@ -184,9 +266,33 @@ mod tests {
     fn test_classify_4bet() {
         let mut hand = base_hand();
         hand.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.06), to: make_money(0.18), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.18), to: make_money(0.50), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.06),
+                    to: make_money(0.18),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.18),
+                    to: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
         assert_eq!(classify_pot_type(&hand), "4bet");
     }
