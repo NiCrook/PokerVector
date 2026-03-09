@@ -124,7 +124,13 @@ pub async fn search_similar_actions(
         .get_hand_vector(hand_id, vector_name)
         .await
         .context("Failed to get hand vector")?
-        .ok_or_else(|| anyhow::anyhow!("Hand {} not found or has no '{}' vector", hand_id, vector_name))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Hand {} not found or has no '{}' vector",
+                hand_id,
+                vector_name
+            )
+        })?;
 
     // Exclude the source hand from results
     let exclude = format!("id != {}", hand_id);

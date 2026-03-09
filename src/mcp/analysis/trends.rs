@@ -3,11 +3,7 @@ use crate::types::Hand;
 
 use crate::mcp::helpers::{days_from_ymd, ymd_from_days};
 
-pub fn get_trends_analysis(
-    mut hands: Vec<Hand>,
-    hero: &str,
-    period: &str,
-) -> serde_json::Value {
+pub fn get_trends_analysis(mut hands: Vec<Hand>, hero: &str, period: &str) -> serde_json::Value {
     if hands.is_empty() {
         return serde_json::json!({
             "periods": [],

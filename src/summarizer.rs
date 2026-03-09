@@ -65,7 +65,10 @@ fn game_info_line(hand: &Hand) -> String {
             if variant_prefix.is_empty() {
                 format!("Tournament #{} Level {}", tournament_id, level)
             } else {
-                format!("{}Tournament #{} Level {}", variant_prefix, tournament_id, level)
+                format!(
+                    "{}Tournament #{} Level {}",
+                    variant_prefix, tournament_id, level
+                )
             }
         }
     };
@@ -95,7 +98,13 @@ fn summarize_streets(hand: &Hand) -> String {
     let mut street_summaries = Vec::new();
 
     let streets: &[Street] = if hand.variant == PokerVariant::SevenCardStud {
-        &[Street::ThirdStreet, Street::FourthStreet, Street::FifthStreet, Street::SixthStreet, Street::SeventhStreet]
+        &[
+            Street::ThirdStreet,
+            Street::FourthStreet,
+            Street::FifthStreet,
+            Street::SixthStreet,
+            Street::SeventhStreet,
+        ]
     } else {
         &[Street::Preflop, Street::Flop, Street::Turn, Street::River]
     };
@@ -142,7 +151,11 @@ fn summarize_streets(hand: &Hand) -> String {
                         .as_deref()
                         .map(|d| format!(" ({})", d))
                         .unwrap_or_default();
-                    Some(format!("{} shows{}", display_name(&a.player, hero_name), desc))
+                    Some(format!(
+                        "{} shows{}",
+                        display_name(&a.player, hero_name),
+                        desc
+                    ))
                 }
                 _ => None,
             })
@@ -193,11 +206,11 @@ fn is_notable_action(action: &Action, hero_name: &str) -> bool {
         ActionType::Fold if is_hero => true,
         ActionType::Check if is_hero => true,
         ActionType::Call { .. } if is_hero => true,
-        ActionType::Bet { .. } => true,         // all bets are notable
-        ActionType::Raise { .. } => true,       // all raises are notable
+        ActionType::Bet { .. } => true,   // all bets are notable
+        ActionType::Raise { .. } => true, // all raises are notable
         ActionType::Call { all_in: true, .. } => true, // all-in calls are notable
-        ActionType::Fold if !is_hero => false,   // skip non-hero folds
-        ActionType::Check if !is_hero => false,  // skip non-hero checks
+        ActionType::Fold if !is_hero => false, // skip non-hero folds
+        ActionType::Check if !is_hero => false, // skip non-hero checks
         ActionType::Call { .. } if !is_hero => true, // non-hero calls are somewhat notable
         // Skip blind posts, sit-out, etc
         ActionType::PostSmallBlind { .. }
@@ -265,21 +278,23 @@ fn result_line(hand: &Hand) -> String {
                 .filter(|w| hand.hero.as_ref().map(|h| w.player == *h).unwrap_or(false))
                 .map(|w| w.amount.amount)
                 .sum();
-            let went_to_showdown = hand
-                .actions
-                .iter()
-                .any(|a| a.street == Street::Showdown);
+            let went_to_showdown = hand.actions.iter().any(|a| a.street == Street::Showdown);
             if went_to_showdown {
-                format!("Hero {} wins {} at showdown.", hero_name, format_money_from_hand(hand, total))
+                format!(
+                    "Hero {} wins {} at showdown.",
+                    hero_name,
+                    format_money_from_hand(hand, total)
+                )
             } else {
-                format!("Hero {} wins {} without showdown.", hero_name, format_money_from_hand(hand, total))
+                format!(
+                    "Hero {} wins {} without showdown.",
+                    hero_name,
+                    format_money_from_hand(hand, total)
+                )
             }
         }
         HeroResult::Lost => {
-            let went_to_showdown = hand
-                .actions
-                .iter()
-                .any(|a| a.street == Street::Showdown);
+            let went_to_showdown = hand.actions.iter().any(|a| a.street == Street::Showdown);
             if went_to_showdown {
                 format!("Hero {} loses at showdown.", hero_name)
             } else {
@@ -291,9 +306,7 @@ fn result_line(hand: &Hand) -> String {
             let fold_street = hand
                 .actions
                 .iter()
-                .find(|a| {
-                    a.player == hero_name && matches!(a.action_type, ActionType::Fold)
-                })
+                .find(|a| a.player == hero_name && matches!(a.action_type, ActionType::Fold))
                 .map(|a| a.street);
             match fold_street {
                 Some(street) => format!("Hero {} folded on the {}.", hero_name, street),
@@ -332,8 +345,14 @@ mod tests {
             is_hi_lo: false,
             is_bomb_pot: false,
             game_type: GameType::Cash {
-                small_blind: Money { amount: 0.01, currency: Currency::USD },
-                big_blind: Money { amount: 0.02, currency: Currency::USD },
+                small_blind: Money {
+                    amount: 0.01,
+                    currency: Currency::USD,
+                },
+                big_blind: Money {
+                    amount: 0.02,
+                    currency: Currency::USD,
+                },
                 ante: None,
             },
             timestamp: "2024-01-01 12:00:00".to_string(),
@@ -348,8 +367,14 @@ mod tests {
                 Action {
                     player: "TestHero".to_string(),
                     action_type: ActionType::Raise {
-                        amount: Money { amount: 0.02, currency: Currency::USD },
-                        to: Money { amount: 0.04, currency: Currency::USD },
+                        amount: Money {
+                            amount: 0.02,
+                            currency: Currency::USD,
+                        },
+                        to: Money {
+                            amount: 0.04,
+                            currency: Currency::USD,
+                        },
                         all_in: false,
                     },
                     street: Street::Preflop,
@@ -357,19 +382,28 @@ mod tests {
                 Action {
                     player: "Freddeyz".to_string(),
                     action_type: ActionType::Call {
-                        amount: Money { amount: 0.04, currency: Currency::USD },
+                        amount: Money {
+                            amount: 0.04,
+                            currency: Currency::USD,
+                        },
                         all_in: false,
                     },
                     street: Street::Preflop,
                 },
             ],
             board: vec![],
-            pot: Some(Money { amount: 0.06, currency: Currency::USD }),
+            pot: Some(Money {
+                amount: 0.06,
+                currency: Currency::USD,
+            }),
             rake: None,
             result: HandResult {
                 winners: vec![Winner {
                     player: "TestHero".to_string(),
-                    amount: Money { amount: 0.06, currency: Currency::USD },
+                    amount: Money {
+                        amount: 0.06,
+                        currency: Currency::USD,
+                    },
                     pot: "Main pot".to_string(),
                 }],
                 hero_result: HeroResult::Won,
@@ -415,8 +449,14 @@ mod tests {
         hand.game_type = GameType::Tournament {
             tournament_id: 34375286,
             level: 17,
-            small_blind: Money { amount: 400.0, currency: Currency::Chips },
-            big_blind: Money { amount: 800.0, currency: Currency::Chips },
+            small_blind: Money {
+                amount: 400.0,
+                currency: Currency::Chips,
+            },
+            big_blind: Money {
+                amount: 800.0,
+                currency: Currency::Chips,
+            },
             ante: None,
         };
         let summary = summarize(&hand);

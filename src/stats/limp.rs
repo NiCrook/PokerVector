@@ -24,7 +24,11 @@ pub(crate) fn limp_analysis(hand: &Hand, player: &str) -> LimpResult {
     let mut player_is_blind = false;
 
     // Check if player is SB or BB (blinds can't "open limp" in the traditional sense, but SB completing counts)
-    let player_pos = hand.players.iter().find(|p| p.name == player).and_then(|p| p.position);
+    let player_pos = hand
+        .players
+        .iter()
+        .find(|p| p.name == player)
+        .and_then(|p| p.position);
     if let Some(pos) = player_pos {
         if pos == Position::BB {
             return result; // BB can't open limp
@@ -39,7 +43,13 @@ pub(crate) fn limp_analysis(hand: &Hand, player: &str) -> LimpResult {
             continue;
         }
         if action.player == player {
-            if matches!(action.action_type, ActionType::PostSmallBlind { .. } | ActionType::PostBigBlind { .. } | ActionType::PostAnte { .. } | ActionType::PostBlind { .. }) {
+            if matches!(
+                action.action_type,
+                ActionType::PostSmallBlind { .. }
+                    | ActionType::PostBigBlind { .. }
+                    | ActionType::PostAnte { .. }
+                    | ActionType::PostBlind { .. }
+            ) {
                 continue;
             }
             break;
@@ -62,8 +72,15 @@ pub(crate) fn limp_analysis(hand: &Hand, player: &str) -> LimpResult {
 
     // Find player's first voluntary action
     let first_action = hand.actions.iter().find(|a| {
-        a.street == Street::Preflop && a.player == player
-            && !matches!(a.action_type, ActionType::PostSmallBlind { .. } | ActionType::PostBigBlind { .. } | ActionType::PostAnte { .. } | ActionType::PostBlind { .. })
+        a.street == Street::Preflop
+            && a.player == player
+            && !matches!(
+                a.action_type,
+                ActionType::PostSmallBlind { .. }
+                    | ActionType::PostBigBlind { .. }
+                    | ActionType::PostAnte { .. }
+                    | ActionType::PostBlind { .. }
+            )
     });
 
     if let Some(action) = first_action {
@@ -78,15 +95,34 @@ pub(crate) fn limp_analysis(hand: &Hand, player: &str) -> LimpResult {
             result.limp.1 = true;
 
             // Did someone raise after the limp?
-            let raise_after_limp = hand.actions.iter()
-                .skip_while(|a| !(a.street == Street::Preflop && a.player == player && matches!(a.action_type, ActionType::Call { .. })))
+            let raise_after_limp = hand
+                .actions
+                .iter()
+                .skip_while(|a| {
+                    !(a.street == Street::Preflop
+                        && a.player == player
+                        && matches!(a.action_type, ActionType::Call { .. }))
+                })
                 .skip(1)
-                .any(|a| a.street == Street::Preflop && a.player != player && matches!(a.action_type, ActionType::Raise { .. } | ActionType::Bet { .. }));
+                .any(|a| {
+                    a.street == Street::Preflop
+                        && a.player != player
+                        && matches!(
+                            a.action_type,
+                            ActionType::Raise { .. } | ActionType::Bet { .. }
+                        )
+                });
 
             if raise_after_limp {
                 // Find player's response to the raise
-                let response = hand.actions.iter()
-                    .skip_while(|a| !(a.street == Street::Preflop && a.player == player && matches!(a.action_type, ActionType::Call { .. })))
+                let response = hand
+                    .actions
+                    .iter()
+                    .skip_while(|a| {
+                        !(a.street == Street::Preflop
+                            && a.player == player
+                            && matches!(a.action_type, ActionType::Call { .. }))
+                    })
                     .skip(1)
                     .find(|a| a.street == Street::Preflop && a.player == player);
 
@@ -98,7 +134,9 @@ pub(crate) fn limp_analysis(hand: &Hand, player: &str) -> LimpResult {
                     match &resp.action_type {
                         ActionType::Call { .. } => result.limp_call.1 = true,
                         ActionType::Fold => result.limp_fold.1 = true,
-                        ActionType::Raise { .. } | ActionType::Bet { .. } => result.limp_raise.1 = true,
+                        ActionType::Raise { .. } | ActionType::Bet { .. } => {
+                            result.limp_raise.1 = true
+                        }
                         _ => {}
                     }
                 }
@@ -120,15 +158,67 @@ mod tests {
         // Hero on BTN, folded to, limps. Villain raises, Hero calls.
         let mut hand = sixmax_hand();
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "LJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "HJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "CO_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(4.00), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(3.00), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "LJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "HJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "CO_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(1.00),
+                    to: make_money(4.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(3.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");
@@ -140,15 +230,64 @@ mod tests {
     fn test_limp_fold() {
         let mut hand = sixmax_hand();
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "LJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "HJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "CO_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(4.00), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "LJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "HJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "CO_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(1.00),
+                    to: make_money(4.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");

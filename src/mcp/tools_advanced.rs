@@ -414,7 +414,8 @@ impl PokerVectorMcp {
 
         if hands.is_empty() {
             return Ok(CallToolResult::success(vec![Content::text(
-                serde_json::json!({"error": "No Hold'em hands found for this position"}).to_string(),
+                serde_json::json!({"error": "No Hold'em hands found for this position"})
+                    .to_string(),
             )]));
         }
 
@@ -541,16 +542,8 @@ impl PokerVectorMcp {
 
         // Sort by open % descending (strongest hands first)
         combo_results.sort_by(|a, b| {
-            let oa: f64 = a["open_pct"]
-                .as_str()
-                .unwrap_or("0")
-                .parse()
-                .unwrap_or(0.0);
-            let ob: f64 = b["open_pct"]
-                .as_str()
-                .unwrap_or("0")
-                .parse()
-                .unwrap_or(0.0);
+            let oa: f64 = a["open_pct"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
+            let ob: f64 = b["open_pct"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
             ob.partial_cmp(&oa).unwrap_or(std::cmp::Ordering::Equal)
         });
 

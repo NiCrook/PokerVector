@@ -52,7 +52,11 @@ impl Embedder {
             .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
 
         let batch_size = encodings.len();
-        let max_len = encodings.iter().map(|e| e.get_ids().len()).max().unwrap_or(0);
+        let max_len = encodings
+            .iter()
+            .map(|e| e.get_ids().len())
+            .max()
+            .unwrap_or(0);
 
         // Build padded input tensors as i64
         let mut input_ids = Array2::<i64>::zeros((batch_size, max_len));
@@ -71,12 +75,12 @@ impl Embedder {
         let token_type_ids = Array2::<i64>::zeros((batch_size, max_len));
 
         // Create ort Tensor values from ndarrays
-        let input_ids_tensor = Tensor::from_array(input_ids)
-            .context("Failed to create input_ids tensor")?;
-        let attention_mask_tensor = Tensor::from_array(attention_mask)
-            .context("Failed to create attention_mask tensor")?;
-        let token_type_ids_tensor = Tensor::from_array(token_type_ids)
-            .context("Failed to create token_type_ids tensor")?;
+        let input_ids_tensor =
+            Tensor::from_array(input_ids).context("Failed to create input_ids tensor")?;
+        let attention_mask_tensor =
+            Tensor::from_array(attention_mask).context("Failed to create attention_mask tensor")?;
+        let token_type_ids_tensor =
+            Tensor::from_array(token_type_ids).context("Failed to create token_type_ids tensor")?;
 
         // Run inference (session.run needs &self in ort 2.0)
         let inputs = ort::inputs! {
@@ -85,10 +89,7 @@ impl Embedder {
             "token_type_ids" => token_type_ids_tensor,
         };
 
-        let outputs = self
-            .session
-            .run(inputs)
-            .context("ONNX inference failed")?;
+        let outputs = self.session.run(inputs).context("ONNX inference failed")?;
 
         // Extract token embeddings: shape [batch, seq_len, 384]
         let (shape, data) = outputs[0]
@@ -147,12 +148,18 @@ mod tests {
     #[ignore] // Requires model download
     fn test_embed_produces_384_dim_vector() {
         let mut embedder = Embedder::new().unwrap();
-        let vec = embedder.embed("Hero raises to $0.04 from the button").unwrap();
+        let vec = embedder
+            .embed("Hero raises to $0.04 from the button")
+            .unwrap();
         assert_eq!(vec.len(), 384);
 
         // Check L2 normalized (magnitude ~1.0)
         let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "Expected unit vector, got norm {}", norm);
+        assert!(
+            (norm - 1.0).abs() < 1e-5,
+            "Expected unit vector, got norm {}",
+            norm
+        );
     }
 
     #[test]
@@ -172,7 +179,9 @@ mod tests {
     #[ignore] // Requires model download
     fn test_similar_texts_have_higher_cosine_similarity() {
         let mut embedder = Embedder::new().unwrap();
-        let v1 = embedder.embed("Hero raises to $0.04 from the button").unwrap();
+        let v1 = embedder
+            .embed("Hero raises to $0.04 from the button")
+            .unwrap();
         let v2 = embedder.embed("Player raises from BTN position").unwrap();
         let v3 = embedder.embed("The weather is sunny today").unwrap();
 

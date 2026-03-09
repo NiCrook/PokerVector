@@ -1,25 +1,21 @@
-use std::time::Instant;
-use pokervector::parsers;
 use pokervector::action_encoder;
-use pokervector::summarizer;
 use pokervector::embedder::Embedder;
-use pokervector::stats;
+use pokervector::parsers;
 use pokervector::sessions;
+use pokervector::stats;
+use pokervector::summarizer;
 use pokervector::types::Hand;
+use std::time::Instant;
 
 const HERO: &str = "TestHero";
 const ITERS: u32 = 10;
 const EMBED_ITERS: u32 = 3; // fewer iters for slow ONNX inference
 
 fn load_all() -> String {
-    let dir = std::env::var("POKERVECTOR_HH_DIR")
-        .unwrap_or_else(|_| "tests/fixtures".to_string());
+    let dir = std::env::var("POKERVECTOR_HH_DIR").unwrap_or_else(|_| "tests/fixtures".to_string());
     let pattern = format!("{}/*.txt", dir);
     let mut all = String::new();
-    for path in glob::glob(&pattern)
-        .unwrap()
-        .flatten()
-    {
+    for path in glob::glob(&pattern).unwrap().flatten() {
         all.push_str(&std::fs::read_to_string(&path).unwrap());
         all.push_str("\n\n");
     }
@@ -51,7 +47,10 @@ fn main() {
     let hands = parse_all(&content);
 
     // Serialize hands to JSON (simulates scroll_hands DB read)
-    let jsons: Vec<String> = hands.iter().map(|h| serde_json::to_string(h).unwrap()).collect();
+    let jsons: Vec<String> = hands
+        .iter()
+        .map(|h| serde_json::to_string(h).unwrap())
+        .collect();
     let json_kb: f64 = jsons.iter().map(|j| j.len()).sum::<usize>() as f64 / 1024.0;
 
     // Measure raw_text contribution
@@ -59,18 +58,30 @@ fn main() {
     let raw_text_kb = raw_text_bytes as f64 / 1024.0;
 
     // Serialize without raw_text to measure savings
-    let jsons_no_raw: Vec<String> = hands.iter().map(|h| {
-        let mut h2 = h.clone();
-        h2.raw_text = String::new();
-        serde_json::to_string(&h2).unwrap()
-    }).collect();
+    let jsons_no_raw: Vec<String> = hands
+        .iter()
+        .map(|h| {
+            let mut h2 = h.clone();
+            h2.raw_text = String::new();
+            serde_json::to_string(&h2).unwrap()
+        })
+        .collect();
     let json_no_raw_kb: f64 = jsons_no_raw.iter().map(|j| j.len()).sum::<usize>() as f64 / 1024.0;
 
     println!("=== PokerVector Hot Path Profile ===");
-    println!("  {} raw hand texts, {} parsed hands", raw_hands.len(), hands.len());
-    println!("  {json_kb:.1} KB total JSON ({raw_text_kb:.1} KB raw_text, {:.1} KB without)",
-             json_no_raw_kb);
-    println!("  raw_text is {:.0}% of JSON payload", (1.0 - json_no_raw_kb / json_kb) * 100.0);
+    println!(
+        "  {} raw hand texts, {} parsed hands",
+        raw_hands.len(),
+        hands.len()
+    );
+    println!(
+        "  {json_kb:.1} KB total JSON ({raw_text_kb:.1} KB raw_text, {:.1} KB without)",
+        json_no_raw_kb
+    );
+    println!(
+        "  raw_text is {:.0}% of JSON payload",
+        (1.0 - json_no_raw_kb / json_kb) * 100.0
+    );
     println!();
 
     // 1. split_hands
@@ -123,14 +134,16 @@ fn main() {
 
     // 8. JSON deser + calculate_stats (simulates full MCP get_stats path)
     time("deser+stats (full)", ITERS, || {
-        let deserialized: Vec<Hand> = jsons.iter()
+        let deserialized: Vec<Hand> = jsons
+            .iter()
             .map(|j| serde_json::from_str(j).unwrap())
             .collect();
         std::hint::black_box(stats::calculate_stats(&deserialized, HERO));
     });
 
     time("deser+stats (no raw_text)", ITERS, || {
-        let deserialized: Vec<Hand> = jsons_no_raw.iter()
+        let deserialized: Vec<Hand> = jsons_no_raw
+            .iter()
             .map(|j| serde_json::from_str(j).unwrap())
             .collect();
         std::hint::black_box(stats::calculate_stats(&deserialized, HERO));
@@ -156,7 +169,11 @@ fn main() {
         // The real cost is the DB round-trip, not the HashSet lookup.
         // This measures the overhead of building the IN(...) query string
         time("dedup (batch IN query)", ITERS, || {
-            let id_list: String = all_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+            let id_list: String = all_ids
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
             let query = format!("id IN ({})", id_list);
             std::hint::black_box(query);
         });
@@ -164,7 +181,8 @@ fn main() {
 
     // 9. Embedding (ONNX inference) — the import bottleneck
     let summaries: Vec<String> = hands.iter().map(|h| summarizer::summarize(h)).collect();
-    let action_encodings: Vec<String> = hands.iter()
+    let action_encodings: Vec<String> = hands
+        .iter()
         .map(|h| action_encoder::encode_action_sequence(h, HERO))
         .collect();
 
@@ -215,8 +233,14 @@ fn main() {
     println!("--- Full Import Pipeline (no DB) ---");
     time("pipeline (sorted)", EMBED_ITERS, || {
         let hs = parse_all(&content);
-        let mut work: Vec<(String, String)> = hs.iter()
-            .map(|h| (summarizer::summarize(h), action_encoder::encode_action_sequence(h, HERO)))
+        let mut work: Vec<(String, String)> = hs
+            .iter()
+            .map(|h| {
+                (
+                    summarizer::summarize(h),
+                    action_encoder::encode_action_sequence(h, HERO),
+                )
+            })
             .collect();
         work.sort_by_key(|(s, _)| s.len());
         for chunk in work.chunks(32) {

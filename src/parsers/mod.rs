@@ -68,9 +68,7 @@ pub fn parse_cards(s: &str) -> Vec<Card> {
 pub fn parse_money(s: &str) -> ParseResult<Money> {
     let s = s.trim();
     if s.starts_with('$') {
-        let amount: f64 = s[1..]
-            .parse()
-            .map_err(|_| ParseError::Money(s.into()))?;
+        let amount: f64 = s[1..].parse().map_err(|_| ParseError::Money(s.into()))?;
         Ok(Money {
             amount,
             currency: Currency::USD,
@@ -146,11 +144,7 @@ fn find_blank_line_boundary(s: &str) -> usize {
 }
 
 /// Calculate position based on seat number relative to button
-pub fn calculate_position(
-    seat: u8,
-    button_seat: u8,
-    active_seats: &[u8],
-) -> Option<Position> {
+pub fn calculate_position(seat: u8, button_seat: u8, active_seats: &[u8]) -> Option<Position> {
     let n = active_seats.len();
     if n == 0 {
         return None;

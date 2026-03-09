@@ -138,8 +138,8 @@ impl PokerVectorMcp {
                         .collect::<Vec<_>>()
                         .join(" ");
                     let bb = stats::big_blind_size(hand);
-                    let profit =
-                        stats::hero_collected(hand, &self.hero) - stats::hero_invested(hand, &self.hero);
+                    let profit = stats::hero_collected(hand, &self.hero)
+                        - stats::hero_invested(hand, &self.hero);
                     let profit_bb = if bb > 0.0 { profit / bb } else { 0.0 };
 
                     results.push(serde_json::json!({
@@ -209,9 +209,11 @@ impl PokerVectorMcp {
             if showdowns.len() >= 10 {
                 break;
             }
-            if let Some(action) = hand.actions.iter().find(|a| {
-                a.player == *villain && matches!(a.action_type, ActionType::Shows { .. })
-            }) {
+            if let Some(action) = hand
+                .actions
+                .iter()
+                .find(|a| a.player == *villain && matches!(a.action_type, ActionType::Shows { .. }))
+            {
                 if let ActionType::Shows {
                     cards, description, ..
                 } = &action.action_type

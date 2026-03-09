@@ -75,40 +75,118 @@ fn test_encode_simple_srp() {
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
         // Blinds
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // BTN opens
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // SB folds
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
         // BB calls
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // Flop
-        Action { player: "Hero".to_string(), action_type: ActionType::Check, street: Street::Flop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Bet { amount: usd(0.08), all_in: false }, street: Street::Flop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Flop },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Check,
+            street: Street::Flop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Bet {
+                amount: usd(0.08),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Flop,
+        },
     ];
     hand.board = vec![
-        make_card('A', 'h'), make_card('7', 'c'), make_card('2', 'd'),
+        make_card('A', 'h'),
+        make_card('7', 'c'),
+        make_card('2', 'd'),
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Villain".to_string(), amount: usd(0.20), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Villain".to_string(),
+            amount: usd(0.20),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Folded,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
     // Verify preflop uses BB sizing
-    assert!(encoded.contains("V1_OPEN(3bb)"), "Expected OPEN(3bb), got:\n{}", encoded);
+    assert!(
+        encoded.contains("V1_OPEN(3bb)"),
+        "Expected OPEN(3bb), got:\n{}",
+        encoded
+    );
     // Verify call sizing in bb
-    assert!(encoded.contains("HERO_CALL(2bb)"), "Expected CALL(2bb), got:\n{}", encoded);
+    assert!(
+        encoded.contains("HERO_CALL(2bb)"),
+        "Expected CALL(2bb), got:\n{}",
+        encoded
+    );
     // Flop uses pot fractions
-    assert!(encoded.contains("FLOP[Ah7c2d]"), "Expected FLOP[Ah7c2d], got:\n{}", encoded);
+    assert!(
+        encoded.contains("FLOP[Ah7c2d]"),
+        "Expected FLOP[Ah7c2d], got:\n{}",
+        encoded
+    );
     // V1 bets — should be c-bet since V1 was preflop aggressor
-    assert!(encoded.contains("V1_CBET("), "Expected V1_CBET, got:\n{}", encoded);
+    assert!(
+        encoded.contains("V1_CBET("),
+        "Expected V1_CBET, got:\n{}",
+        encoded
+    );
     // Hero folds on flop
-    assert!(encoded.contains("HERO_FOLD"), "Expected HERO_FOLD, got:\n{}", encoded);
+    assert!(
+        encoded.contains("HERO_FOLD"),
+        "Expected HERO_FOLD, got:\n{}",
+        encoded
+    );
     // Result
-    assert!(encoded.contains("RESULT: HERO(-3bb)"), "Expected RESULT: HERO(-3bb), got:\n{}", encoded);
+    assert!(
+        encoded.contains("RESULT: HERO(-3bb)"),
+        "Expected RESULT: HERO(-3bb), got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -121,21 +199,68 @@ fn test_encode_3bet_pot() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // V opens
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
         // Hero 3-bets
-        Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: usd(0.16), to: usd(0.18), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.16),
+                to: usd(0.18),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // V calls
-        Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: usd(0.12), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.12),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
     ];
     hand.board = vec![
-        make_card('K', 's'), make_card('9', 'h'), make_card('3', 'd'),
+        make_card('K', 's'),
+        make_card('9', 'h'),
+        make_card('3', 'd'),
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Hero".to_string(), amount: usd(0.37), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Hero".to_string(),
+            amount: usd(0.37),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Won,
     };
 
@@ -155,17 +280,70 @@ fn test_encode_4bet_pot() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: usd(0.16), to: usd(0.18), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.16),
+                to: usd(0.18),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // V 4-bets
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.26), to: usd(0.44), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.26), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.26),
+                to: usd(0.44),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.26),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Hero".to_string(), amount: usd(0.89), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Hero".to_string(),
+            amount: usd(0.89),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Won,
     };
 
@@ -187,12 +365,55 @@ fn test_encode_multiway() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "P2".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "P4".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "P1".to_string(), action_type: ActionType::Call { amount: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "P2".to_string(), action_type: ActionType::Call { amount: usd(0.05), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "P2".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "P4".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "P1".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "P2".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.05),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
     ];
     hand.result = HandResult {
         winners: vec![],
@@ -225,14 +446,51 @@ fn test_encode_stakes_normalization() {
         hand.hero_position = Some(Position::BB);
         // Same structure: open to 3bb, hero calls
         hand.actions = vec![
-            Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(sb), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(bb_amt), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(bb_amt * 2.0), to: usd(bb_amt * 3.0), all_in: false }, street: Street::Preflop },
-            Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(bb_amt * 2.0), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "SBPlayer".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: usd(sb),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: usd(bb_amt),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: usd(bb_amt * 2.0),
+                    to: usd(bb_amt * 3.0),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "SBPlayer".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: usd(bb_amt * 2.0),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
         hand.result = HandResult {
-            winners: vec![Winner { player: "Hero".to_string(), amount: usd(bb_amt * 6.5), pot: "Main pot".to_string() }],
+            winners: vec![Winner {
+                player: "Hero".to_string(),
+                amount: usd(bb_amt * 6.5),
+                pot: "Main pot".to_string(),
+            }],
             hero_result: HeroResult::Won,
         };
         hand
@@ -244,7 +502,11 @@ fn test_encode_stakes_normalization() {
     let enc_micro = encode_action_sequence(&hand_micro, "Hero");
     let enc_mid = encode_action_sequence(&hand_mid, "Hero");
 
-    assert_eq!(enc_micro, enc_mid, "Same structure at different stakes should produce identical output:\nmicro: {}\nmid: {}", enc_micro, enc_mid);
+    assert_eq!(
+        enc_micro, enc_mid,
+        "Same structure at different stakes should produce identical output:\nmicro: {}\nmid: {}",
+        enc_micro, enc_mid
+    );
 }
 
 #[test]
@@ -257,21 +519,50 @@ fn test_encode_bomb_pot() {
     ];
     hand.actions = vec![
         // No preflop actions in bomb pots — play starts on flop
-        Action { player: "Hero".to_string(), action_type: ActionType::Check, street: Street::Flop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Bet { amount: usd(0.10), all_in: false }, street: Street::Flop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Flop },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Check,
+            street: Street::Flop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Bet {
+                amount: usd(0.10),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Flop,
+        },
     ];
     hand.board = vec![
-        make_card('T', 's'), make_card('8', 'h'), make_card('3', 'c'),
+        make_card('T', 's'),
+        make_card('8', 'h'),
+        make_card('3', 'c'),
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Villain".to_string(), amount: usd(0.50), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Villain".to_string(),
+            amount: usd(0.50),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Folded,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
-    assert!(encoded.starts_with("BOMB_POT\n"), "Expected BOMB_POT prefix, got:\n{}", encoded);
-    assert!(!encoded.contains("PRE:"), "Bomb pots should have no preflop line, got:\n{}", encoded);
+    assert!(
+        encoded.starts_with("BOMB_POT\n"),
+        "Expected BOMB_POT prefix, got:\n{}",
+        encoded
+    );
+    assert!(
+        !encoded.contains("PRE:"),
+        "Bomb pots should have no preflop line, got:\n{}",
+        encoded
+    );
     assert!(encoded.contains("FLOP[Ts8h3c]"), "got:\n{}", encoded);
 }
 
@@ -287,32 +578,83 @@ fn test_encode_stud() {
         ante: Some(usd(0.01)),
     };
     hand.button_seat = 0; // no button in stud
-    hand.players = vec![
-        make_player(1, "Hero", true),
-        make_player(2, "StudV", false),
-    ];
+    hand.players = vec![make_player(1, "Hero", true), make_player(2, "StudV", false)];
     hand.hero_position = None; // no positions in stud
     hand.actions = vec![
-        Action { player: "Hero".to_string(), action_type: ActionType::PostAnte { amount: usd(0.01) }, street: Street::ThirdStreet },
-        Action { player: "StudV".to_string(), action_type: ActionType::PostAnte { amount: usd(0.01) }, street: Street::ThirdStreet },
-        Action { player: "StudV".to_string(), action_type: ActionType::BringsIn { amount: usd(0.02) }, street: Street::ThirdStreet },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.02), all_in: false }, street: Street::ThirdStreet },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostAnte { amount: usd(0.01) },
+            street: Street::ThirdStreet,
+        },
+        Action {
+            player: "StudV".to_string(),
+            action_type: ActionType::PostAnte { amount: usd(0.01) },
+            street: Street::ThirdStreet,
+        },
+        Action {
+            player: "StudV".to_string(),
+            action_type: ActionType::BringsIn { amount: usd(0.02) },
+            street: Street::ThirdStreet,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::ThirdStreet,
+        },
         // 4th street
-        Action { player: "Hero".to_string(), action_type: ActionType::Check, street: Street::FourthStreet },
-        Action { player: "StudV".to_string(), action_type: ActionType::Bet { amount: usd(0.04), all_in: false }, street: Street::FourthStreet },
-        Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::FourthStreet },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Check,
+            street: Street::FourthStreet,
+        },
+        Action {
+            player: "StudV".to_string(),
+            action_type: ActionType::Bet {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::FourthStreet,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::FourthStreet,
+        },
     ];
     hand.board = vec![]; // no community board in stud
     hand.result = HandResult {
-        winners: vec![Winner { player: "StudV".to_string(), amount: usd(0.10), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "StudV".to_string(),
+            amount: usd(0.10),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Folded,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
-    assert!(encoded.contains("3RD:"), "Expected 3RD: label, got:\n{}", encoded);
-    assert!(encoded.contains("BRINGIN"), "Expected BRINGIN, got:\n{}", encoded);
-    assert!(!encoded.contains("["), "Stud should have no board cards, got:\n{}", encoded);
-    assert!(encoded.contains("4TH:"), "Expected 4TH: label, got:\n{}", encoded);
+    assert!(
+        encoded.contains("3RD:"),
+        "Expected 3RD: label, got:\n{}",
+        encoded
+    );
+    assert!(
+        encoded.contains("BRINGIN"),
+        "Expected BRINGIN, got:\n{}",
+        encoded
+    );
+    assert!(
+        !encoded.contains("["),
+        "Stud should have no board cards, got:\n{}",
+        encoded
+    );
+    assert!(
+        encoded.contains("4TH:"),
+        "Expected 4TH: label, got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -325,19 +667,60 @@ fn test_encode_all_in() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.28), to: usd(0.30), all_in: true }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.28), all_in: true }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.28),
+                to: usd(0.30),
+                all_in: true,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.28),
+                all_in: true,
+            },
+            street: Street::Preflop,
+        },
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Hero".to_string(), amount: usd(0.61), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Hero".to_string(),
+            amount: usd(0.61),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Won,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
-    assert!(encoded.contains("_AI("), "Expected _AI suffix, got:\n{}", encoded);
+    assert!(
+        encoded.contains("_AI("),
+        "Expected _AI suffix, got:\n{}",
+        encoded
+    );
     assert!(encoded.contains("V1_OPEN_AI(15bb)"), "got:\n{}", encoded);
     assert!(encoded.contains("HERO_CALL_AI(14bb)"), "got:\n{}", encoded);
 }
@@ -352,19 +735,53 @@ fn test_encode_walk() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Hero".to_string(), amount: usd(0.03), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Hero".to_string(),
+            amount: usd(0.03),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Won,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
-    assert!(encoded.contains("PRE: WALK"), "Expected WALK, got:\n{}", encoded);
-    assert!(encoded.contains("RESULT: HERO(+0.5bb)"), "Expected +0.5bb result, got:\n{}", encoded);
+    assert!(
+        encoded.contains("PRE: WALK"),
+        "Expected WALK, got:\n{}",
+        encoded
+    );
+    assert!(
+        encoded.contains("RESULT: HERO(+0.5bb)"),
+        "Expected +0.5bb result, got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -389,35 +806,108 @@ fn test_pot_tracker_accuracy() {
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
         // Preflop: SB 0.01, BB 0.02, V raises to 0.06, SB folds, Hero calls 0.04
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // Pot at flop start: 0.01 + 0.02 + 0.06 + 0.04 = 0.13
         // Flop: Hero checks, V bets 0.08 (0.62pot), Hero calls 0.08
-        Action { player: "Hero".to_string(), action_type: ActionType::Check, street: Street::Flop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Bet { amount: usd(0.08), all_in: false }, street: Street::Flop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.08), all_in: false }, street: Street::Flop },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Check,
+            street: Street::Flop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Bet {
+                amount: usd(0.08),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.08),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
         // Pot at turn start: 0.13 + 0.08 + 0.08 = 0.29
-        Action { player: "Hero".to_string(), action_type: ActionType::Check, street: Street::Turn },
-        Action { player: "Villain".to_string(), action_type: ActionType::Check, street: Street::Turn },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Check,
+            street: Street::Turn,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Check,
+            street: Street::Turn,
+        },
     ];
     hand.board = vec![
-        make_card('A', 'h'), make_card('7', 'c'), make_card('2', 'd'),
+        make_card('A', 'h'),
+        make_card('7', 'c'),
+        make_card('2', 'd'),
         make_card('5', 's'),
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Hero".to_string(), amount: usd(0.29), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Hero".to_string(),
+            amount: usd(0.29),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Won,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
     // The flop c-bet should be relative to pot_at_street_start (0.13)
     // 0.08 / 0.13 ≈ 0.62
-    assert!(encoded.contains("V1_CBET(0.62pot)"), "Expected CBET(0.62pot), got:\n{}", encoded);
+    assert!(
+        encoded.contains("V1_CBET(0.62pot)"),
+        "Expected CBET(0.62pot), got:\n{}",
+        encoded
+    );
     // The call on flop: 0.08 / 0.13 ≈ 0.62
-    assert!(encoded.contains("HERO_CALL(0.62pot)"), "Expected CALL(0.62pot), got:\n{}", encoded);
+    assert!(
+        encoded.contains("HERO_CALL(0.62pot)"),
+        "Expected CALL(0.62pot), got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -430,21 +920,79 @@ fn test_postflop_raise_multiplier() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // Flop: pot = 0.13. Hero bets 0.10, V raises to 0.30 (3x)
-        Action { player: "Hero".to_string(), action_type: ActionType::Bet { amount: usd(0.10), all_in: false }, street: Street::Flop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.20), to: usd(0.30), all_in: false }, street: Street::Flop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Flop },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Bet {
+                amount: usd(0.10),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.20),
+                to: usd(0.30),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Flop,
+        },
     ];
     hand.board = vec![
-        make_card('K', 's'), make_card('9', 'h'), make_card('3', 'd'),
+        make_card('K', 's'),
+        make_card('9', 'h'),
+        make_card('3', 'd'),
     ];
     hand.result = HandResult {
-        winners: vec![Winner { player: "Villain".to_string(), amount: usd(0.53), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Villain".to_string(),
+            amount: usd(0.53),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Folded,
     };
 
@@ -452,9 +1000,17 @@ fn test_postflop_raise_multiplier() {
     // Hero bets first on flop but is NOT preflop aggressor (Villain opened) — so it's a BET not CBET
     // Wait — Hero called preflop, Villain opened, so Villain is preflop aggressor.
     // Hero bets first on flop → this is a donk bet, not a cbet.
-    assert!(encoded.contains("HERO_BET("), "Expected HERO_BET, got:\n{}", encoded);
+    assert!(
+        encoded.contains("HERO_BET("),
+        "Expected HERO_BET, got:\n{}",
+        encoded
+    );
     // Villain raises to 0.30, current_bet was 0.10 → 3x multiplier
-    assert!(encoded.contains("V1_RAISE(3x)"), "Expected V1_RAISE(3x), got:\n{}", encoded);
+    assert!(
+        encoded.contains("V1_RAISE(3x)"),
+        "Expected V1_RAISE(3x), got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -467,29 +1023,87 @@ fn test_uncalled_bet_adjusts_pot() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // Flop: Hero bets 0.10, V folds → uncalled bet returned
-        Action { player: "Hero".to_string(), action_type: ActionType::Bet { amount: usd(0.10), all_in: false }, street: Street::Flop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Flop },
-        Action { player: "Hero".to_string(), action_type: ActionType::UncalledBet { amount: usd(0.10) }, street: Street::Flop },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Bet {
+                amount: usd(0.10),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Flop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::UncalledBet { amount: usd(0.10) },
+            street: Street::Flop,
+        },
     ];
     hand.board = vec![
-        make_card('A', 'h'), make_card('7', 'c'), make_card('2', 'd'),
+        make_card('A', 'h'),
+        make_card('7', 'c'),
+        make_card('2', 'd'),
     ];
     // Hero wins the pot (0.13, since uncalled 0.10 was returned)
     hand.result = HandResult {
-        winners: vec![Winner { player: "Hero".to_string(), amount: usd(0.13), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Hero".to_string(),
+            amount: usd(0.13),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Won,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
     // Net should be: collected 0.13 - invested (0.02 + 0.04) = +0.07 / 0.02 = +3.5bb
     // hero_invested: 0.02 (BB) + 0.04 (call) + 0.10 (bet) - 0.10 (uncalled) = 0.06
-    assert!(encoded.contains("RESULT: HERO(+3.5bb)"), "Expected +3.5bb, got:\n{}", encoded);
+    assert!(
+        encoded.contains("RESULT: HERO(+3.5bb)"),
+        "Expected +3.5bb, got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -502,21 +1116,62 @@ fn test_net_result_calculation() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
     ];
     // Hero invested: 0.02 + 0.04 = 0.06
     // Hero wins 0.13 → net = 0.07 / 0.02 = +3.5bb
     hand.result = HandResult {
-        winners: vec![Winner { player: "Hero".to_string(), amount: usd(0.13), pot: "Main pot".to_string() }],
+        winners: vec![Winner {
+            player: "Hero".to_string(),
+            amount: usd(0.13),
+            pot: "Main pot".to_string(),
+        }],
         hero_result: HeroResult::Won,
     };
 
     let encoded = encode_action_sequence(&hand, "Hero");
-    assert!(encoded.contains("RESULT: HERO(+3.5bb)"), "Expected +3.5bb, got:\n{}", encoded);
+    assert!(
+        encoded.contains("RESULT: HERO(+3.5bb)"),
+        "Expected +3.5bb, got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -529,11 +1184,44 @@ fn test_call_sizing_preflop() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
     ];
     hand.result = HandResult {
         winners: vec![],
@@ -542,7 +1230,11 @@ fn test_call_sizing_preflop() {
 
     let encoded = encode_action_sequence(&hand, "Hero");
     // Call of 0.04 / 0.02 (bb) = 2bb
-    assert!(encoded.contains("HERO_CALL(2bb)"), "Expected CALL(2bb), got:\n{}", encoded);
+    assert!(
+        encoded.contains("HERO_CALL(2bb)"),
+        "Expected CALL(2bb), got:\n{}",
+        encoded
+    );
 }
 
 #[test]
@@ -555,17 +1247,66 @@ fn test_call_sizing_postflop() {
     ];
     hand.hero_position = Some(Position::BB);
     hand.actions = vec![
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::PostSmallBlind { amount: usd(0.01), all_in: false }, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: usd(0.02), all_in: false }, street: Street::Preflop },
-        Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: usd(0.04), to: usd(0.06), all_in: false }, street: Street::Preflop },
-        Action { player: "SBPlayer".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.04), all_in: false }, street: Street::Preflop },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::PostSmallBlind {
+                amount: usd(0.01),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::PostBigBlind {
+                amount: usd(0.02),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Raise {
+                amount: usd(0.04),
+                to: usd(0.06),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
+        Action {
+            player: "SBPlayer".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.04),
+                all_in: false,
+            },
+            street: Street::Preflop,
+        },
         // Flop: pot = 0.13, V bets 0.08, Hero calls 0.08
-        Action { player: "Villain".to_string(), action_type: ActionType::Bet { amount: usd(0.08), all_in: false }, street: Street::Flop },
-        Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: usd(0.08), all_in: false }, street: Street::Flop },
+        Action {
+            player: "Villain".to_string(),
+            action_type: ActionType::Bet {
+                amount: usd(0.08),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
+        Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Call {
+                amount: usd(0.08),
+                all_in: false,
+            },
+            street: Street::Flop,
+        },
     ];
     hand.board = vec![
-        make_card('A', 'h'), make_card('7', 'c'), make_card('2', 'd'),
+        make_card('A', 'h'),
+        make_card('7', 'c'),
+        make_card('2', 'd'),
     ];
     hand.result = HandResult {
         winners: vec![],
@@ -574,5 +1315,9 @@ fn test_call_sizing_postflop() {
 
     let encoded = encode_action_sequence(&hand, "Hero");
     // Call of 0.08 / 0.13 (pot at street start) ≈ 0.62pot
-    assert!(encoded.contains("HERO_CALL(0.62pot)"), "Expected CALL(0.62pot), got:\n{}", encoded);
+    assert!(
+        encoded.contains("HERO_CALL(0.62pot)"),
+        "Expected CALL(0.62pot), got:\n{}",
+        encoded
+    );
 }

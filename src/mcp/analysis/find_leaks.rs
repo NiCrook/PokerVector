@@ -1,9 +1,6 @@
 use crate::stats;
 
-pub fn find_leaks_analysis(
-    s: &stats::PlayerStats,
-    table_size: &str,
-) -> serde_json::Value {
+pub fn find_leaks_analysis(s: &stats::PlayerStats, table_size: &str) -> serde_json::Value {
     // Baseline ranges: (stat_name, min, max, hero_val, description_if_low, description_if_high)
     let baselines: Vec<(&str, f64, f64, f64, &str, &str)> = if table_size == "full_ring" {
         vec![
@@ -47,7 +44,13 @@ pub fn find_leaks_analysis(
     for (stat_name, min, max, value, low_desc, high_desc) in &baselines {
         if *value < *min {
             let deviation = min - value;
-            let severity = if deviation > (max - min) { "major" } else if deviation > (max - min) * 0.5 { "moderate" } else { "minor" };
+            let severity = if deviation > (max - min) {
+                "major"
+            } else if deviation > (max - min) * 0.5 {
+                "moderate"
+            } else {
+                "minor"
+            };
             leaks.push(serde_json::json!({
                 "stat": stat_name,
                 "value": format!("{:.1}", value),
@@ -58,7 +61,13 @@ pub fn find_leaks_analysis(
             }));
         } else if *value > *max {
             let deviation = value - max;
-            let severity = if deviation > (max - min) { "major" } else if deviation > (max - min) * 0.5 { "moderate" } else { "minor" };
+            let severity = if deviation > (max - min) {
+                "major"
+            } else if deviation > (max - min) * 0.5 {
+                "moderate"
+            } else {
+                "minor"
+            };
             leaks.push(serde_json::json!({
                 "stat": stat_name,
                 "value": format!("{:.1}", value),
@@ -72,7 +81,13 @@ pub fn find_leaks_analysis(
 
     let gap_max = if table_size == "full_ring" { 7.0 } else { 6.0 };
     if vpip_pfr_gap > gap_max {
-        let severity = if vpip_pfr_gap > gap_max * 2.0 { "major" } else if vpip_pfr_gap > gap_max * 1.5 { "moderate" } else { "minor" };
+        let severity = if vpip_pfr_gap > gap_max * 2.0 {
+            "major"
+        } else if vpip_pfr_gap > gap_max * 1.5 {
+            "moderate"
+        } else {
+            "minor"
+        };
         leaks.push(serde_json::json!({
             "stat": "vpip_pfr_gap",
             "value": format!("{:.1}", vpip_pfr_gap),
@@ -84,7 +99,13 @@ pub fn find_leaks_analysis(
     }
 
     if s.limp_pct > 5.0 {
-        let severity = if s.limp_pct > 20.0 { "major" } else if s.limp_pct > 10.0 { "moderate" } else { "minor" };
+        let severity = if s.limp_pct > 20.0 {
+            "major"
+        } else if s.limp_pct > 10.0 {
+            "moderate"
+        } else {
+            "minor"
+        };
         leaks.push(serde_json::json!({
             "stat": "limp_pct",
             "value": format!("{:.1}", s.limp_pct),
@@ -96,7 +117,11 @@ pub fn find_leaks_analysis(
     }
 
     leaks.sort_by(|a, b| {
-        let sev_order = |s: &str| match s { "major" => 0, "moderate" => 1, _ => 2 };
+        let sev_order = |s: &str| match s {
+            "major" => 0,
+            "moderate" => 1,
+            _ => 2,
+        };
         let sa = sev_order(a["severity"].as_str().unwrap_or("minor"));
         let sb = sev_order(b["severity"].as_str().unwrap_or("minor"));
         sa.cmp(&sb)

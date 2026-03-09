@@ -96,7 +96,11 @@ impl PotTracker {
                 }
             }
             ActionType::Raise { to, .. } => {
-                let prev = self.current_round.get(&action.player).copied().unwrap_or(0.0);
+                let prev = self
+                    .current_round
+                    .get(&action.player)
+                    .copied()
+                    .unwrap_or(0.0);
                 let increment = to.amount - prev;
                 *self.current_round.entry(action.player.clone()).or_default() = to.amount;
                 self.current_pot += increment;

@@ -1,16 +1,16 @@
 mod action_encoder;
 mod config;
-mod importer;
-mod parsers;
-mod types;
-mod summarizer;
 mod embedder;
-mod storage;
-mod stats;
+mod importer;
+mod mcp;
+mod parsers;
+mod scanner;
 mod search;
 mod sessions;
-mod mcp;
-mod scanner;
+mod stats;
+mod storage;
+mod summarizer;
+mod types;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -107,7 +107,9 @@ async fn main() -> Result<()> {
 
                     println!("Opening database...");
                     let data_dir = config::data_dir();
-                    let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
+                    let store =
+                        storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands")
+                            .await?;
 
                     let result = import_one(&path, &hero, &mut embedder, &store).await?;
                     total_imported = result.imported;
@@ -125,7 +127,9 @@ async fn main() -> Result<()> {
 
                     println!("Opening database...");
                     let data_dir = config::data_dir();
-                    let store = storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands").await?;
+                    let store =
+                        storage::VectorStore::new(data_dir.to_str().unwrap(), "poker_hands")
+                            .await?;
 
                     for account in &cfg.accounts {
                         println!("=== {} ({}) ===", account.hero, account.site);
@@ -137,8 +141,10 @@ async fn main() -> Result<()> {
                         println!();
                     }
 
-                    println!("Total: {} imported, {} skipped, {} errors",
-                        total_imported, total_skipped, total_errors);
+                    println!(
+                        "Total: {} imported, {} skipped, {} errors",
+                        total_imported, total_skipped, total_errors
+                    );
                 }
             }
 
@@ -162,8 +168,13 @@ async fn main() -> Result<()> {
                 println!("Accounts:");
                 for account in &cfg.accounts {
                     let tag = if account.manual { "manual" } else { "scanned" };
-                    println!("  {} ({}) — {} [{}]",
-                        account.hero, account.site, account.path.display(), tag);
+                    println!(
+                        "  {} ({}) — {} [{}]",
+                        account.hero,
+                        account.site,
+                        account.path.display(),
+                        tag
+                    );
                 }
             }
             let data_dir = config::data_dir();
@@ -214,7 +225,9 @@ async fn main() -> Result<()> {
             if !merged.accounts.is_empty() {
                 println!("Accounts:");
                 for account in &merged.accounts {
-                    let is_new = new_accounts.iter().any(|a| a.site == account.site && a.hero == account.hero);
+                    let is_new = new_accounts
+                        .iter()
+                        .any(|a| a.site == account.site && a.hero == account.hero);
                     let tag = if is_new {
                         "NEW"
                     } else if account.manual {
@@ -222,8 +235,13 @@ async fn main() -> Result<()> {
                     } else {
                         "scanned"
                     };
-                    println!("  {} ({}) — {} [{}]",
-                        account.hero, account.site, account.path.display(), tag);
+                    println!(
+                        "  {} ({}) — {} [{}]",
+                        account.hero,
+                        account.site,
+                        account.path.display(),
+                        tag
+                    );
                 }
             }
 
@@ -265,7 +283,10 @@ async fn main() -> Result<()> {
             });
 
             // Check for duplicates
-            let exists = cfg.accounts.iter().any(|a| a.site == site_kind && a.hero == hero);
+            let exists = cfg
+                .accounts
+                .iter()
+                .any(|a| a.site == site_kind && a.hero == hero);
             if exists {
                 println!("Account already exists: {} ({})", hero, site_kind);
                 return Ok(());

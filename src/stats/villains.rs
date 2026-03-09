@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::types::*;
 use super::calculate::calculate_stats;
+use super::helpers::{big_blind_size, hero_collected, hero_invested};
 use super::types::VillainSummary;
-use super::helpers::{hero_invested, hero_collected, big_blind_size};
+use crate::types::*;
 
 /// List villain stats for all opponents with at least `min_hands` shared hands.
 pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainSummary> {
@@ -11,13 +11,19 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
     let mut opponent_hands: HashMap<String, Vec<&Hand>> = HashMap::new();
 
     for hand in hands {
-        let hero_in_hand = hand.players.iter().any(|p| p.name == hero && !p.is_sitting_out);
+        let hero_in_hand = hand
+            .players
+            .iter()
+            .any(|p| p.name == hero && !p.is_sitting_out);
         if !hero_in_hand {
             continue;
         }
         for player in &hand.players {
             if player.name != hero && !player.is_sitting_out {
-                opponent_hands.entry(player.name.clone()).or_default().push(hand);
+                opponent_hands
+                    .entry(player.name.clone())
+                    .or_default()
+                    .push(hand);
             }
         }
     }
@@ -72,28 +78,62 @@ pub fn list_villains(hands: &[Hand], hero: &str, min_hands: u64) -> Vec<VillainS
         })
         .collect();
 
-    villains.sort_by(|a, b| b.net_profit.partial_cmp(&a.net_profit).unwrap_or(std::cmp::Ordering::Equal));
+    villains.sort_by(|a, b| {
+        b.net_profit
+            .partial_cmp(&a.net_profit)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     villains
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_helpers::*;
+    use super::*;
 
     #[test]
     fn test_list_villains() {
         let mut h1 = base_hand();
         h1.actions = vec![
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Call { amount: make_money(0.05), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.05),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
 
         let mut h2 = base_hand();
         h2.id = 2;
         h2.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::Raise { amount: make_money(0.02), to: make_money(0.06), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Call { amount: make_money(0.06), all_in: false }, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(0.02),
+                    to: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Call {
+                    amount: make_money(0.06),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
         ];
 
         let villains = list_villains(&[h1, h2], "Hero", 1);

@@ -7,8 +7,8 @@ use crate::stats;
 
 use super::helpers::mcp_error;
 use super::params::{
-    BestVillainsParams, CompareStatsParams, GetPoolStatsParams, GetStatsParams,
-    ListVillainsParams, WorstVillainsParams,
+    BestVillainsParams, CompareStatsParams, GetPoolStatsParams, GetStatsParams, ListVillainsParams,
+    WorstVillainsParams,
 };
 use super::PokerVectorMcp;
 

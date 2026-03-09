@@ -53,7 +53,8 @@ pub async fn import_directory(
     let all_ids: Vec<u64> = all_hands.iter().map(|h| h.id).collect();
     let existing_ids = store.get_existing_ids(&all_ids).await?;
     let skipped = existing_ids.len() as u64;
-    let new_hands: Vec<&types::Hand> = all_hands.iter()
+    let new_hands: Vec<&types::Hand> = all_hands
+        .iter()
         .filter(|h| !existing_ids.contains(&h.id))
         .collect();
 
@@ -92,12 +93,21 @@ pub async fn import_directory(
 
         let batch: Vec<(&types::Hand, &str, &str, HandEmbeddings)> = chunk
             .iter()
-            .zip(summary_embeddings.into_iter().zip(action_embeddings.into_iter()))
+            .zip(
+                summary_embeddings
+                    .into_iter()
+                    .zip(action_embeddings.into_iter()),
+            )
             .map(|((hand, summary, action_enc), (sum_emb, act_emb))| {
-                (*hand, summary.as_str(), action_enc.as_str(), HandEmbeddings {
-                    summary: sum_emb,
-                    action: act_emb,
-                })
+                (
+                    *hand,
+                    summary.as_str(),
+                    action_enc.as_str(),
+                    HandEmbeddings {
+                        summary: sum_emb,
+                        action: act_emb,
+                    },
+                )
             })
             .collect();
 

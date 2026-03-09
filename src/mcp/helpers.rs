@@ -58,7 +58,9 @@ pub fn rank_order(rank: Rank) -> u8 {
 }
 
 pub fn combo_label(cards: &[Card]) -> Option<String> {
-    if cards.len() != 2 { return None; }
+    if cards.len() != 2 {
+        return None;
+    }
     let (c1, c2) = (&cards[0], &cards[1]);
     let r1 = rank_order(c1.rank);
     let r2 = rank_order(c2.rank);

@@ -16,7 +16,11 @@ pub(crate) fn steal_analysis(hand: &Hand, player: &str) -> StealResult {
         fold_sb: (false, false),
     };
 
-    let player_pos = hand.players.iter().find(|p| p.name == player).and_then(|p| p.position);
+    let player_pos = hand
+        .players
+        .iter()
+        .find(|p| p.name == player)
+        .and_then(|p| p.position);
 
     // Steal: open raise from CO/BTN/SB when folded to
     let steal_positions = [Position::CO, Position::BTN, Position::SB];
@@ -42,11 +46,22 @@ pub(crate) fn steal_analysis(hand: &Hand, player: &str) -> StealResult {
             if folded_to_player {
                 result.steal.0 = true;
                 // Did player raise?
-                let player_action = hand.actions.iter()
-                    .find(|a| a.street == Street::Preflop && a.player == player
-                        && !matches!(a.action_type, ActionType::PostSmallBlind { .. } | ActionType::PostBigBlind { .. } | ActionType::PostAnte { .. } | ActionType::PostBlind { .. }));
+                let player_action = hand.actions.iter().find(|a| {
+                    a.street == Street::Preflop
+                        && a.player == player
+                        && !matches!(
+                            a.action_type,
+                            ActionType::PostSmallBlind { .. }
+                                | ActionType::PostBigBlind { .. }
+                                | ActionType::PostAnte { .. }
+                                | ActionType::PostBlind { .. }
+                        )
+                });
                 if let Some(a) = player_action {
-                    if matches!(a.action_type, ActionType::Raise { .. } | ActionType::Bet { .. }) {
+                    if matches!(
+                        a.action_type,
+                        ActionType::Raise { .. } | ActionType::Bet { .. }
+                    ) {
                         result.steal.1 = true;
                     }
                 }
@@ -60,11 +75,16 @@ pub(crate) fn steal_analysis(hand: &Hand, player: &str) -> StealResult {
             // Find the first voluntary preflop action
             let first_raise = hand.actions.iter().find(|a| {
                 a.street == Street::Preflop
-                    && matches!(a.action_type, ActionType::Raise { .. } | ActionType::Bet { .. })
+                    && matches!(
+                        a.action_type,
+                        ActionType::Raise { .. } | ActionType::Bet { .. }
+                    )
             });
             if let Some(raise_action) = first_raise {
                 // Is this an open-raise from a steal position?
-                let raiser_pos = hand.players.iter()
+                let raiser_pos = hand
+                    .players
+                    .iter()
                     .find(|p| p.name == raise_action.player)
                     .and_then(|p| p.position);
                 if let Some(rp) = raiser_pos {
@@ -79,7 +99,9 @@ pub(crate) fn steal_analysis(hand: &Hand, player: &str) -> StealResult {
                                 break;
                             }
                             match &action.action_type {
-                                ActionType::Call { .. } | ActionType::Raise { .. } | ActionType::Bet { .. } => {
+                                ActionType::Call { .. }
+                                | ActionType::Raise { .. }
+                                | ActionType::Bet { .. } => {
                                     folded_to_raiser = false;
                                     break;
                                 }
@@ -88,11 +110,19 @@ pub(crate) fn steal_analysis(hand: &Hand, player: &str) -> StealResult {
                         }
                         if folded_to_raiser {
                             // Player faces a steal
-                            let player_response = hand.actions.iter()
+                            let player_response = hand
+                                .actions
+                                .iter()
                                 .filter(|a| a.street == Street::Preflop && a.player == player)
-                                .find(|a| !matches!(a.action_type,
-                                    ActionType::PostSmallBlind { .. } | ActionType::PostBigBlind { .. }
-                                    | ActionType::PostAnte { .. } | ActionType::PostBlind { .. }));
+                                .find(|a| {
+                                    !matches!(
+                                        a.action_type,
+                                        ActionType::PostSmallBlind { .. }
+                                            | ActionType::PostBigBlind { .. }
+                                            | ActionType::PostAnte { .. }
+                                            | ActionType::PostBlind { .. }
+                                    )
+                                });
                             if let Some(resp) = player_response {
                                 if pos == Position::BB {
                                     result.fold_bb.0 = true;
@@ -127,14 +157,56 @@ mod tests {
         // Hero on BTN, folded to Hero, Hero raises = steal
         let mut hand = sixmax_hand();
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "LJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "HJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "CO_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(2.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "LJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "HJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "CO_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(1.00),
+                    to: make_money(2.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");
@@ -151,14 +223,56 @@ mod tests {
         hand.players[2].seat = 1;
         hand.hero_position = Some(Position::BB);
         hand.actions = vec![
-            Action { player: "Villain".to_string(), action_type: ActionType::PostSmallBlind { amount: make_money(0.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::PostBigBlind { amount: make_money(1.00), all_in: false }, street: Street::Preflop },
-            Action { player: "LJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "HJ_Player".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "CO_Player".to_string(), action_type: ActionType::Raise { amount: make_money(1.00), to: make_money(2.50), all_in: false }, street: Street::Preflop },
-            Action { player: "Fish".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Villain".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
-            Action { player: "Hero".to_string(), action_type: ActionType::Fold, street: Street::Preflop },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::PostSmallBlind {
+                    amount: make_money(0.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::PostBigBlind {
+                    amount: make_money(1.00),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "LJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "HJ_Player".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "CO_Player".to_string(),
+                action_type: ActionType::Raise {
+                    amount: make_money(1.00),
+                    to: make_money(2.50),
+                    all_in: false,
+                },
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Fish".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Villain".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
+            Action {
+                player: "Hero".to_string(),
+                action_type: ActionType::Fold,
+                street: Street::Preflop,
+            },
         ];
 
         let stats = calculate_stats(&[hand], "Hero");

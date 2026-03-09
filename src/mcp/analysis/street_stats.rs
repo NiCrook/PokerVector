@@ -12,7 +12,14 @@ pub fn get_street_stats_analysis(hands: &[Hand], player: &str) -> serde_json::Va
 
     impl StreetCounts {
         fn new() -> Self {
-            Self { hands_seen: 0, bets: 0, raises: 0, calls: 0, checks: 0, folds: 0 }
+            Self {
+                hands_seen: 0,
+                bets: 0,
+                raises: 0,
+                calls: 0,
+                checks: 0,
+                folds: 0,
+            }
         }
         fn total_actions(&self) -> u64 {
             self.bets + self.raises + self.calls + self.checks + self.folds
@@ -29,11 +36,19 @@ pub fn get_street_stats_analysis(hands: &[Hand], player: &str) -> serde_json::Va
     let streets_of_interest = [Street::Flop, Street::Turn, Street::River];
 
     for hand in hands {
-        let in_hand = hand.players.iter().any(|p| p.name == player && !p.is_sitting_out);
-        if !in_hand { continue; }
+        let in_hand = hand
+            .players
+            .iter()
+            .any(|p| p.name == player && !p.is_sitting_out);
+        if !in_hand {
+            continue;
+        }
 
         for &street in &streets_of_interest {
-            let player_acted = hand.actions.iter().any(|a| a.player == player && a.street == street);
+            let player_acted = hand
+                .actions
+                .iter()
+                .any(|a| a.player == player && a.street == street);
             if player_acted {
                 let counts = match street {
                     Street::Flop => &mut flop,
@@ -46,7 +61,9 @@ pub fn get_street_stats_analysis(hands: &[Hand], player: &str) -> serde_json::Va
         }
 
         for action in &hand.actions {
-            if action.player != player { continue; }
+            if action.player != player {
+                continue;
+            }
             let counts = match action.street {
                 Street::Flop => &mut flop,
                 Street::Turn => &mut turn,
@@ -65,13 +82,23 @@ pub fn get_street_stats_analysis(hands: &[Hand], player: &str) -> serde_json::Va
     }
 
     let pct = |num: u64, den: u64| -> f64 {
-        if den > 0 { num as f64 / den as f64 * 100.0 } else { 0.0 }
+        if den > 0 {
+            num as f64 / den as f64 * 100.0
+        } else {
+            0.0
+        }
     };
 
     let street_json = |name: &str, c: &StreetCounts| -> serde_json::Value {
         let total = c.total_actions();
         let agg = c.aggressive_actions();
-        let af = if c.calls > 0 { agg as f64 / c.calls as f64 } else if agg > 0 { f64::INFINITY } else { 0.0 };
+        let af = if c.calls > 0 {
+            agg as f64 / c.calls as f64
+        } else if agg > 0 {
+            f64::INFINITY
+        } else {
+            0.0
+        };
         serde_json::json!({
             "street": name,
             "hands_seen": c.hands_seen,
@@ -91,8 +118,13 @@ pub fn get_street_stats_analysis(hands: &[Hand], player: &str) -> serde_json::Va
         })
     };
 
-    let total_hands = hands.iter()
-        .filter(|h| h.players.iter().any(|p| p.name == player && !p.is_sitting_out))
+    let total_hands = hands
+        .iter()
+        .filter(|h| {
+            h.players
+                .iter()
+                .any(|p| p.name == player && !p.is_sitting_out)
+        })
         .count();
 
     serde_json::json!({

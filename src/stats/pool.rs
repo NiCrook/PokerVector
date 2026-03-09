@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::types::*;
 use super::calculate::calculate_stats;
 use super::types::PlayerStats;
+use crate::types::*;
 
 /// Distribution stats for a single metric across the player pool.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -101,7 +101,10 @@ pub fn calculate_pool_stats(hands: &[Hand], hero: &str, min_hands: u64) -> PoolS
     let mut player_hands: HashMap<String, Vec<Hand>> = HashMap::new();
 
     for hand in hands {
-        let hero_in_hand = hand.players.iter().any(|p| p.name == hero && !p.is_sitting_out);
+        let hero_in_hand = hand
+            .players
+            .iter()
+            .any(|p| p.name == hero && !p.is_sitting_out);
         if !hero_in_hand {
             continue;
         }
@@ -157,8 +160,8 @@ pub fn calculate_pool_stats(hands: &[Hand], hero: &str, min_hands: u64) -> PoolS
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_helpers::*;
+    use super::*;
 
     #[test]
     fn test_pool_stats_basic() {
@@ -232,13 +235,11 @@ mod tests {
     #[test]
     fn test_pool_stats_min_hands_filter() {
         let mut h1 = base_hand();
-        h1.actions = vec![
-            Action {
-                player: "Hero".to_string(),
-                action_type: ActionType::Fold,
-                street: Street::Preflop,
-            },
-        ];
+        h1.actions = vec![Action {
+            player: "Hero".to_string(),
+            action_type: ActionType::Fold,
+            street: Street::Preflop,
+        }];
 
         // Only 1 hand for Villain, min_hands=2 should exclude them
         let pool = calculate_pool_stats(&[h1], "Hero", 2);
