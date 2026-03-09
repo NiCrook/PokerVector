@@ -4,7 +4,7 @@ use rmcp::model::*;
 
 use crate::search::{self, SearchParams};
 use crate::stats;
-use crate::types::{ActionType, Street};
+use crate::types::{ActionType, Hand, Street};
 
 use super::helpers::mcp_error;
 use super::params::{
@@ -25,7 +25,7 @@ impl PokerVectorMcp {
             .map_err(|e| mcp_error(&format!("Failed to retrieve hand: {}", e)))?;
         match hand {
             Some(h) => {
-                let json = serde_json::to_string_pretty(&h)
+                let json = serde_json::to_string_pretty(&h.to_compact())
                     .map_err(|e| mcp_error(&format!("Serialization failed: {}", e)))?;
                 Ok(CallToolResult::success(vec![Content::text(json)]))
             }
@@ -372,13 +372,15 @@ impl PokerVectorMcp {
         let bb = stats::big_blind_size(&hand);
 
         // Actions before the decision
-        let actions_before: Vec<serde_json::Value> = hand.actions[..decision_idx]
+        let actions_before: Vec<String> = hand.actions[..decision_idx]
             .iter()
-            .map(|a| {
-                serde_json::json!({
-                    "street": format!("{}", a.street),
-                    "player": if a.player == *hero { "Hero".to_string() } else { a.player.clone() },
-                    "action": format!("{:?}", a.action_type),
+            .filter_map(|a| {
+                Hand::compact_action(a).map(|s| {
+                    if a.player == *hero {
+                        s.replacen(&a.player, "Hero", 1)
+                    } else {
+                        s
+                    }
                 })
             })
             .collect();
@@ -413,13 +415,17 @@ impl PokerVectorMcp {
 
         // Answer portion
         let hero_action = &hand.actions[decision_idx];
-        let subsequent: Vec<serde_json::Value> = hand.actions[decision_idx + 1..]
+        let hero_action_str = Hand::compact_action(hero_action)
+            .unwrap_or_else(|| format!("{:?}", hero_action.action_type));
+        let subsequent: Vec<String> = hand.actions[decision_idx + 1..]
             .iter()
-            .map(|a| {
-                serde_json::json!({
-                    "street": format!("{}", a.street),
-                    "player": if a.player == *hero { "Hero".to_string() } else { a.player.clone() },
-                    "action": format!("{:?}", a.action_type),
+            .filter_map(|a| {
+                Hand::compact_action(a).map(|s| {
+                    if a.player == *hero {
+                        s.replacen(&a.player, "Hero", 1)
+                    } else {
+                        s
+                    }
                 })
             })
             .collect();
@@ -439,7 +445,7 @@ impl PokerVectorMcp {
         };
 
         let answer = serde_json::json!({
-            "hero_action": format!("{:?}", hero_action.action_type),
+            "hero_action": hero_action_str,
             "subsequent_actions": subsequent,
             "full_board": full_board,
             "result": format!("{:?}", hand.result.hero_result),

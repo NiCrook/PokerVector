@@ -120,7 +120,11 @@ fn test_cash_simple() {
 
     // Game type
     match &hand.game_type {
-        GameType::Cash { small_blind, big_blind, ante } => {
+        GameType::Cash {
+            small_blind,
+            big_blind,
+            ante,
+        } => {
             assert!((small_blind.amount - 0.01).abs() < 0.001);
             assert!((big_blind.amount - 0.02).abs() < 0.001);
             assert!(ante.is_none());
@@ -176,7 +180,11 @@ fn test_cash_ante() {
     }
 
     // Check ante actions exist
-    let ante_actions: Vec<_> = hand.actions.iter().filter(|a| matches!(a.action_type, ActionType::PostAnte { .. })).collect();
+    let ante_actions: Vec<_> = hand
+        .actions
+        .iter()
+        .filter(|a| matches!(a.action_type, ActionType::PostAnte { .. }))
+        .collect();
     assert_eq!(ante_actions.len(), 2);
 }
 
@@ -192,7 +200,13 @@ fn test_tournament_basic() {
     assert_eq!(hand.players.len(), 8);
 
     match &hand.game_type {
-        GameType::Tournament { tournament_id, level, small_blind, big_blind, .. } => {
+        GameType::Tournament {
+            tournament_id,
+            level,
+            small_blind,
+            big_blind,
+            ..
+        } => {
             assert_eq!(*tournament_id, 34375286);
             assert_eq!(*level, 17);
             assert!((small_blind.amount - 2500.0).abs() < 0.01);
@@ -203,7 +217,11 @@ fn test_tournament_basic() {
     }
 
     // Antes exist
-    let ante_actions: Vec<_> = hand.actions.iter().filter(|a| matches!(a.action_type, ActionType::PostAnte { .. })).collect();
+    let ante_actions: Vec<_> = hand
+        .actions
+        .iter()
+        .filter(|a| matches!(a.action_type, ActionType::PostAnte { .. }))
+        .collect();
     assert_eq!(ante_actions.len(), 8);
 
     // Hero folded
@@ -218,7 +236,12 @@ fn test_split_pot() {
 
     // Two winners splitting the pot
     assert!(hand.result.winners.len() >= 2);
-    let winner_names: Vec<&str> = hand.result.winners.iter().map(|w| w.player.as_str()).collect();
+    let winner_names: Vec<&str> = hand
+        .result
+        .winners
+        .iter()
+        .map(|w| w.player.as_str())
+        .collect();
     assert!(winner_names.contains(&"PokerBossBabe"));
     assert!(winner_names.contains(&"ksedoks"));
 
@@ -235,7 +258,12 @@ fn test_side_pots() {
     assert_eq!(hand.id, 2651598942);
 
     // NineABS collected from main pot + 2 side pots
-    let nine_abs_wins: Vec<_> = hand.result.winners.iter().filter(|w| w.player == "NineABS").collect();
+    let nine_abs_wins: Vec<_> = hand
+        .result
+        .winners
+        .iter()
+        .filter(|w| w.player == "NineABS")
+        .collect();
     assert_eq!(nine_abs_wins.len(), 3);
 
     // Verify pot names
@@ -257,15 +285,28 @@ fn test_multiword_name() {
     assert_eq!(lost_it.unwrap().seat, 7);
 
     // "Lost It" should have posted ante and small blind
-    let lost_it_actions: Vec<_> = hand.actions.iter().filter(|a| a.player == "Lost It").collect();
-    assert!(!lost_it_actions.is_empty(), "No actions found for 'Lost It'");
+    let lost_it_actions: Vec<_> = hand
+        .actions
+        .iter()
+        .filter(|a| a.player == "Lost It")
+        .collect();
+    assert!(
+        !lost_it_actions.is_empty(),
+        "No actions found for 'Lost It'"
+    );
 
     // Check that Lost It posted ante
-    assert!(lost_it_actions.iter().any(|a| matches!(a.action_type, ActionType::PostAnte { .. })));
+    assert!(lost_it_actions
+        .iter()
+        .any(|a| matches!(a.action_type, ActionType::PostAnte { .. })));
     // Check that Lost It posted small blind
-    assert!(lost_it_actions.iter().any(|a| matches!(a.action_type, ActionType::PostSmallBlind { .. })));
+    assert!(lost_it_actions
+        .iter()
+        .any(|a| matches!(a.action_type, ActionType::PostSmallBlind { .. })));
     // Check that Lost It folded
-    assert!(lost_it_actions.iter().any(|a| a.action_type == ActionType::Fold));
+    assert!(lost_it_actions
+        .iter()
+        .any(|a| a.action_type == ActionType::Fold));
 }
 
 #[test]
@@ -332,9 +373,20 @@ fn test_omaha_hl() {
 
     // H/L split: both Lost It and bootanuts collected from main pot
     assert!(hand.result.winners.len() >= 2);
-    let winner_names: Vec<&str> = hand.result.winners.iter().map(|w| w.player.as_str()).collect();
-    assert!(winner_names.contains(&"Lost It"), "Lost It should be a winner");
-    assert!(winner_names.contains(&"bootanuts"), "bootanuts should be a winner");
+    let winner_names: Vec<&str> = hand
+        .result
+        .winners
+        .iter()
+        .map(|w| w.player.as_str())
+        .collect();
+    assert!(
+        winner_names.contains(&"Lost It"),
+        "Lost It should be a winner"
+    );
+    assert!(
+        winner_names.contains(&"bootanuts"),
+        "bootanuts should be a winner"
+    );
 
     // No stud cards
     assert!(hand.stud_cards.is_none());
@@ -361,7 +413,12 @@ fn test_omaha_plo() {
 
     // Hero (TestHero) won with a straight
     assert_eq!(hand.result.hero_result, HeroResult::Won);
-    let winner_names: Vec<&str> = hand.result.winners.iter().map(|w| w.player.as_str()).collect();
+    let winner_names: Vec<&str> = hand
+        .result
+        .winners
+        .iter()
+        .map(|w| w.player.as_str())
+        .collect();
     assert!(winner_names.contains(&"TestHero"));
 
     // No stud cards
@@ -407,7 +464,11 @@ fn test_stud_hl() {
     assert!(hand.board.is_empty());
 
     // Hero should have cards (3 on 3rd street: 2 hidden + 1 up, then 1 more on 4th = 4 total)
-    assert!(hand.hero_cards.len() >= 3, "Hero should have at least 3 cards, got {}", hand.hero_cards.len());
+    assert!(
+        hand.hero_cards.len() >= 3,
+        "Hero should have at least 3 cards, got {}",
+        hand.hero_cards.len()
+    );
 
     // Stud cards should be populated
     assert!(hand.stud_cards.is_some());
@@ -415,12 +476,18 @@ fn test_stud_hl() {
     assert!(!stud_cards.is_empty());
 
     // Verify brings_in action exists
-    let brings_in = hand.actions.iter().find(|a| matches!(a.action_type, ActionType::BringsIn { .. }));
+    let brings_in = hand
+        .actions
+        .iter()
+        .find(|a| matches!(a.action_type, ActionType::BringsIn { .. }));
     assert!(brings_in.is_some(), "Should have a brings_in action");
 
     // No positions assigned in stud
     for player in &hand.players {
-        assert!(player.position.is_none(), "Stud players should not have positions");
+        assert!(
+            player.position.is_none(),
+            "Stud players should not have positions"
+        );
     }
 
     // Hero folded on 4th street
@@ -460,3 +527,158 @@ fn test_existing_hands_have_holdem_defaults() {
     assert!(hand.stud_cards.is_none());
 }
 
+#[test]
+fn test_compact_output_cash_simple() {
+    let content = load_fixture("cash_simple.txt");
+    let results = parse_auto(&content, "TestHero");
+    let hand = results[0].as_ref().unwrap();
+    let compact = hand.to_compact();
+
+    // Core fields
+    assert_eq!(compact["id"], 2651598865u64);
+    assert_eq!(compact["variant"], "No Limit Hold'em");
+    assert_eq!(compact["stakes"], "0.01/0.02");
+    assert_eq!(compact["hero"], "TestHero");
+    assert_eq!(compact["hero_position"], "BB");
+    assert_eq!(compact["hero_cards"], serde_json::json!(["Qd", "Jc"]));
+    assert_eq!(compact["table"], "McCook 9-max");
+
+    // No raw_text, site, button_seat, currency
+    assert!(compact.get("raw_text").is_none());
+    assert!(compact.get("site").is_none());
+    assert!(compact.get("button_seat").is_none());
+
+    // Players as compact arrays
+    let players = compact["players"].as_array().unwrap();
+    assert_eq!(players.len(), 7);
+    assert_eq!(players[0][0], "Ddrupp");
+    assert_eq!(players[0][1], "SB");
+
+    // Actions grouped by street, no blind posts
+    let preflop = compact["preflop"].as_array().unwrap();
+    assert!(!preflop.is_empty());
+    // First action should NOT be a blind post
+    let first = preflop[0].as_str().unwrap();
+    assert!(
+        !first.contains("posts"),
+        "Blind posts should be omitted: {}",
+        first
+    );
+    // Should contain hero's raise
+    assert!(preflop
+        .iter()
+        .any(|a| a.as_str().unwrap().contains("raises to")));
+
+    // No board for preflop-only hand
+    assert!(compact.get("board").is_none());
+
+    // Result
+    assert_eq!(compact["result"], "Won 0.06");
+
+    // No hi_lo or bomb_pot keys (false values omitted)
+    assert!(compact.get("hi_lo").is_none());
+    assert!(compact.get("bomb_pot").is_none());
+
+    // Verify compactness — should be much smaller than full JSON
+    let compact_str = serde_json::to_string(&compact).unwrap();
+    let full_str = serde_json::to_string(hand).unwrap();
+    assert!(
+        compact_str.len() < full_str.len() / 2,
+        "Compact ({}) should be less than half of full ({})",
+        compact_str.len(),
+        full_str.len()
+    );
+}
+
+#[test]
+fn test_compact_output_showdown() {
+    let content = load_fixture("cash_showdown.txt");
+    let results = parse_auto(&content, "TestHero");
+    let hand = results[0].as_ref().unwrap();
+    let compact = hand.to_compact();
+
+    // Should have multiple streets
+    assert!(compact.get("preflop").is_some());
+    assert!(
+        compact.get("flop").is_some()
+            || compact.get("turn").is_some()
+            || compact.get("river").is_some(),
+        "Multistreet hand should have postflop actions"
+    );
+
+    // Board should be present
+    assert!(compact.get("board").is_some());
+
+    // Showdown actions should be present if players showed
+    let has_shows = hand
+        .actions
+        .iter()
+        .any(|a| matches!(a.action_type, ActionType::Shows { .. }));
+    if has_shows {
+        assert!(compact.get("showdown").is_some());
+    }
+}
+
+#[test]
+fn test_compact_action_call_no_amount() {
+    let action = Action {
+        player: "TestPlayer".to_string(),
+        action_type: ActionType::Call {
+            amount: Money {
+                amount: 0.50,
+                currency: Currency::USD,
+            },
+            all_in: false,
+        },
+        street: Street::Preflop,
+    };
+    let result = Hand::compact_action(&action).unwrap();
+    assert_eq!(result, "TestPlayer calls");
+    assert!(!result.contains("0.50"), "Call amount should be omitted");
+}
+
+#[test]
+fn test_compact_action_call_allin() {
+    let action = Action {
+        player: "TestPlayer".to_string(),
+        action_type: ActionType::Call {
+            amount: Money {
+                amount: 10.00,
+                currency: Currency::USD,
+            },
+            all_in: true,
+        },
+        street: Street::Preflop,
+    };
+    let result = Hand::compact_action(&action).unwrap();
+    assert_eq!(result, "TestPlayer calls (all-in)");
+}
+
+#[test]
+fn test_compact_action_blinds_omitted() {
+    let sb = Action {
+        player: "Test".to_string(),
+        action_type: ActionType::PostSmallBlind {
+            amount: Money {
+                amount: 0.01,
+                currency: Currency::USD,
+            },
+            all_in: false,
+        },
+        street: Street::Preflop,
+    };
+    assert!(Hand::compact_action(&sb).is_none());
+
+    let bb = Action {
+        player: "Test".to_string(),
+        action_type: ActionType::PostBigBlind {
+            amount: Money {
+                amount: 0.02,
+                currency: Currency::USD,
+            },
+            all_in: false,
+        },
+        street: Street::Preflop,
+    };
+    assert!(Hand::compact_action(&bb).is_none());
+}
